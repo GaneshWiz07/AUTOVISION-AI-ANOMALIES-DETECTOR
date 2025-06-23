@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { Event } from "@/lib/api";
+import { Event } from "../lib/api";
 
 interface AnomalyChartProps {
   events: Event[];
@@ -41,7 +41,8 @@ const AnomalyChart: React.FC<AnomalyChartProps> = ({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  const CustomTooltip = ({ active, payload }: any) => {
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
