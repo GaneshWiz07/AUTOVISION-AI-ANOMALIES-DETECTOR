@@ -343,12 +343,17 @@ const Dashboard = () => {
           ) : (
             <div className="overflow-hidden">
               <ul className="divide-y divide-gray-200">
+                {" "}
                 {videos.slice(0, 5).map((video) => (
                   <li key={video.id} className="py-4">
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <PlayIcon className="h-5 w-5 text-gray-600" />
+                          {video.upload_status === "processing" ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <PlayIcon className="h-5 w-5 text-gray-600" />
+                          )}
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -373,7 +378,7 @@ const Dashboard = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex-shrink-0">
+                      <div className="flex items-center space-x-2">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                             video.upload_status
@@ -381,6 +386,14 @@ const Dashboard = () => {
                         >
                           {video.upload_status}
                         </span>
+                        {video.upload_status === "completed" && (
+                          <Link
+                            to="/analytics"
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Analyze →
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </li>

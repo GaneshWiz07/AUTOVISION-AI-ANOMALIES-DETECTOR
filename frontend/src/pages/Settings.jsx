@@ -123,7 +123,6 @@ const Settings = () => {
           </p>
         </div>
       </div>
-
       {/* Error/Success Messages */}
       {error && (
         <div className="rounded-md bg-red-50 p-4">
@@ -135,7 +134,6 @@ const Settings = () => {
           </div>
         </div>
       )}
-
       {success && (
         <div className="rounded-md bg-green-50 p-4">
           <div className="flex">
@@ -146,7 +144,6 @@ const Settings = () => {
           </div>
         </div>
       )}
-
       {/* Anomaly Detection Settings */}
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
@@ -262,8 +259,7 @@ const Settings = () => {
             </div>
           </div>
         </div>
-      </div>
-
+      </div>{" "}
       {/* Video Cleanup */}
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:p-6">
@@ -278,22 +274,31 @@ const Settings = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="font-medium">Videos to delete:</span>
-                    <span className="ml-2">
+                    <span className="ml-2 text-red-600 font-semibold">
                       {cleanupPreview.videos_to_delete}
                     </span>
                   </div>
                   <div>
                     <span className="font-medium">Space to free:</span>
-                    <span className="ml-2">
-                      {cleanupPreview.space_to_free_mb} MB
+                    <span className="ml-2 text-blue-600 font-semibold">
+                      {cleanupPreview.space_to_free_mb.toFixed(1)} MB
                     </span>
                   </div>
                 </div>
                 {cleanupPreview.cutoff_date && (
                   <p className="text-sm text-gray-600 mt-2">
                     Videos older than{" "}
-                    {new Date(cleanupPreview.cutoff_date).toLocaleDateString()}{" "}
+                    <span className="font-medium">
+                      {new Date(
+                        cleanupPreview.cutoff_date
+                      ).toLocaleDateString()}
+                    </span>{" "}
                     will be deleted
+                  </p>
+                )}
+                {cleanupPreview.videos_to_delete === 0 && (
+                  <p className="text-sm text-green-600 mt-2 font-medium">
+                    ✓ No old videos to clean up
                   </p>
                 )}
               </div>
@@ -303,9 +308,21 @@ const Settings = () => {
                 disabled={
                   cleanupLoading || cleanupPreview.videos_to_delete === 0
                 }
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {cleanupLoading ? <LoadingSpinner size="sm" /> : "Run Cleanup"}
+                {cleanupLoading ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    <span className="ml-2">Running Cleanup...</span>
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon className="h-4 w-4 mr-2" />
+                    {cleanupPreview.videos_to_delete === 0
+                      ? "No Cleanup Needed"
+                      : "Run Cleanup"}
+                  </>
+                )}
               </button>
             </div>
           )}

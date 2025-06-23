@@ -17,9 +17,27 @@ const VideoAnalytics = () => {
   const [error, setError] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [processingVideo, setProcessingVideo] = useState(null);
-
   useEffect(() => {
     loadData();
+
+    // Set up polling for videos that are processing
+    const pollInterval = setInterval(async () => {
+      try {
+        const videosData = await videoAPI.getVideos(50);
+        const processingVideos =
+          videosData.videos?.filter((v) => v.upload_status === "processing") ||
+          [];
+
+        if (processingVideos.length > 0) {
+          // Refresh data if there are processing videos
+          loadData();
+        }
+      } catch (error) {
+        // Ignore polling errors to avoid spam
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   const loadData = async () => {
@@ -67,6 +85,53 @@ const VideoAnalytics = () => {
       alert("Failed to process video");
     } finally {
       setProcessingVideo(null);
+    }
+  };
+  const handlePlayVideo = async (videoId) => {
+    try {
+      // Get the video stream URL from the backend
+      const video = videos.find((v) => v.id === videoId);
+      if (!video) {
+        alert("Video not found");
+        return;
+      }
+
+      if (video.upload_status !== "completed") {
+        alert(
+          "Video is still processing. Please wait until processing is complete."
+        );
+        return;
+      }
+
+      // Try to get video stream URL - this depends on your backend implementation
+      const streamUrl = `/api/v1/videos/${videoId}/stream`;
+
+      // Test if video stream is accessible before opening
+      const response = await fetch(streamUrl, { method: "HEAD" });
+      if (!response.ok) {
+        throw new Error(`Video stream not accessible: ${response.status}`);
+      }
+
+      // Open video in a new window/tab
+      const newWindow = window.open(streamUrl, "_blank");
+      if (!newWindow) {
+        alert(
+          "Please allow pop-ups for this site to play videos in a new tab."
+        );
+      }
+    } catch (err) {
+      console.error("Error playing video:", err);
+      let errorMessage = "Failed to play video";
+
+      if (err.message.includes("not accessible")) {
+        errorMessage =
+          "Video file is not accessible. It may have been moved or deleted.";
+      } else if (err.name === "TypeError" && err.message.includes("fetch")) {
+        errorMessage =
+          "Cannot connect to video server. Please check your connection.";
+      }
+
+      alert(errorMessage);
     }
   };
 
@@ -182,25 +247,37 @@ const VideoAnalytics = () => {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             {anomalyCount} anomalies
                           </span>
-                        )}
-
+                        )}{" "}
                         {video.upload_status === "completed" && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleProcessVideo(video.id);
-                            }}
-                            disabled={processingVideo === video.id}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:opacity-50"
-                          >
-                            {processingVideo === video.id ? (
-                              <LoadingSpinner size="sm" />
-                            ) : (
-                              "Reprocess"
-                            )}
-                          </button>
-                        )}
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePlayVideo(video.id);
+                              }}
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200"
+                              title="Play Video"
+                            >
+                              <PlayIcon className="h-4 w-4 mr-1" />
+                              Play
+                            </button>
 
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleProcessVideo(video.id);
+                              }}
+                              disabled={processingVideo === video.id}
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:opacity-50"
+                            >
+                              {processingVideo === video.id ? (
+                                <LoadingSpinner size="sm" />
+                              ) : (
+                                "Reprocess"
+                              )}
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
