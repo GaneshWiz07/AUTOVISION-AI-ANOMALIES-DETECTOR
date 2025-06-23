@@ -9,15 +9,14 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-  },
-  server: {
+  },  server: {
     port: 3000,
     host: true,
     proxy: {
       "/api": {
-        target: "http://localhost:12000",
+        target: "https://autovision-ai-server.onrender.com",
         changeOrigin: true,
-        secure: false,
+        secure: true,
         // Don't rewrite the path - keep /api/v1 intact
       },
     },
