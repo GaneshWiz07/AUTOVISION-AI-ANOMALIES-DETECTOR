@@ -65,12 +65,18 @@ const Layout = ({ children }) => {
                   );
                 })}
               </div>
-            </div>
-
+            </div>{" "}
             {/* User menu */}
             <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-700">
-                Welcome, {user?.full_name || user?.email || "User"}
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-700">
+                  Welcome, {user?.full_name || "User"}
+                </div>
+                {user?.email && (
+                  <div className="text-xs text-gray-500 truncate max-w-40">
+                    {user.email}
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleLogout}
@@ -82,11 +88,20 @@ const Layout = ({ children }) => {
             </div>
           </div>
         </div>
-      </nav>
-
+      </nav>{" "}
       {/* Mobile Navigation */}
       <div className="sm:hidden bg-white border-b border-gray-200">
         <div className="px-2 pt-2 pb-3 space-y-1">
+          {/* Mobile User Info */}
+          <div className="px-3 py-2 border-b border-gray-200 mb-2">
+            <div className="text-sm font-medium text-gray-700">
+              Welcome, {user?.full_name || "User"}
+            </div>
+            {user?.email && (
+              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+            )}
+          </div>
+
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
@@ -99,6 +114,7 @@ const Layout = ({ children }) => {
                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                 }`}
               >
+                {" "}
                 <div className="flex items-center">
                   <item.icon className="h-5 w-5 mr-3" />
                   {item.name}
@@ -106,9 +122,19 @@ const Layout = ({ children }) => {
               </Link>
             );
           })}
+
+          {/* Mobile Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+          >
+            <div className="flex items-center">
+              <ArrowRightOnRectangleIcon className="h-5 w-5 mr-3" />
+              Logout
+            </div>
+          </button>
         </div>
       </div>
-
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">{children}</div>

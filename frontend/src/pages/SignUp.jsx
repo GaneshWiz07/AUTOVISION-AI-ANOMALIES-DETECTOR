@@ -32,14 +32,14 @@ const SignUp = () => {
       return;
     }
     setLoading(true);
-
     try {
       const result = await signup(email, password, fullName);
       // If signup succeeds and no verification is required, redirect to dashboard
       if (!result.verificationRequired) {
         navigate("/");
       }
-      // If verification is required, the green message will be shown automatically    } catch (error) {
+      // If verification is required, the green message will be shown automatically
+    } catch (error) {
       console.error("Signup error details:", {
         message: error.message,
         response: error.response?.data,
