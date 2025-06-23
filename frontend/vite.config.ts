@@ -25,6 +25,16 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["react", "react-dom"],
+          router: ["react-router-dom"],
+        },
+      },
+    },
   },
   define: {
     global: "globalThis",
