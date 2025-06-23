@@ -22,11 +22,9 @@ const Layout = ({ children }) => {
       console.error("Logout error:", error);
     }
   };
-
   const navigation = [
     { name: "Dashboard", href: "/", icon: HomeIcon },
     { name: "Video Analytics", href: "/analytics", icon: VideoCameraIcon },
-    { name: "System Metrics", href: "/metrics", icon: ChartBarIcon },
     { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
   ];
 

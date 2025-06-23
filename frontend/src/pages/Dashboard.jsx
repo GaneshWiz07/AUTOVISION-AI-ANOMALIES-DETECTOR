@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { videoAPI, eventAPI, systemAPI } from "./api-utils.js";
 import AnomalyChart from "../components/AnomalyChart";
 import LoadingSpinner from "../components/LoadingSpinner";
+import VideoUpload from "../components/VideoUpload";
 import {
   VideoCameraIcon,
   ExclamationTriangleIcon,
@@ -182,6 +183,23 @@ const Dashboard = () => {
             </>
           )}
         </button>
+      </div>
+      {/* Video Upload Section */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+            Upload New Video
+          </h3>
+          <VideoUpload
+            onUploadSuccess={() => {
+              // Refresh dashboard data when upload is successful
+              loadDashboardData();
+            }}
+            onUploadError={(error) => {
+              setError(error);
+            }}
+          />
+        </div>
       </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

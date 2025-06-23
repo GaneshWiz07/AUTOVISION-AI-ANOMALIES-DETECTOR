@@ -143,4 +143,29 @@ export const systemAPI = {
   },
 };
 
+// Settings API
+export const settingsAPI = {
+  getSettings: async () => {
+    const response = await api.get("/settings");
+    return response.data;
+  },
+  updateSettings: async (settings) => {
+    const response = await api.put("/settings", settings);
+    return response.data;
+  },
+};
+
+// Video cleanup API
+export const cleanupAPI = {
+  getCleanupPreview: async () => {
+    const response = await api.get("/cleanup/preview");
+    return response.data;
+  },
+
+  runCleanup: async () => {
+    const response = await api.post("/cleanup/run");
+    return response.data;
+  },
+};
+
 export default api;
