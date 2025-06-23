@@ -7,6 +7,7 @@ python-dotenv==1.0.0
 # Database & Auth
 supabase==2.3.0
 psycopg2-binary==2.9.9
+PyJWT>=2.8.0
 
 # Image/Video Processing (Currently Used)
 opencv-python>=4.8.0
