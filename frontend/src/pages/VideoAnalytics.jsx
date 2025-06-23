@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { videoAPI, eventAPI } from "../lib/api.js";
-import AnomalyChart from "../components/AnomalyChart";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { videoAPI, eventAPI } from "@lib/api.js";
+import AnomalyChart from "@components/AnomalyChart";
+import LoadingSpinner from "@components/LoadingSpinner";
 import {
   PlayIcon,
   TrashIcon,
