@@ -17,6 +17,7 @@ const VideoAnalytics = () => {
   const [error, setError] = useState(null);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [processingVideo, setProcessingVideo] = useState(null);
+  const [showVideoPopup, setShowVideoPopup] = useState(false);
   useEffect(() => {
     loadData();
 
@@ -39,6 +40,20 @@ const VideoAnalytics = () => {
 
     return () => clearInterval(pollInterval);
   }, []);
+
+  // Handle ESC key to close video popup
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && showVideoPopup) {
+        handleCloseVideoPopup();
+      }
+    };
+
+    if (showVideoPopup) {
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [showVideoPopup]);
 
   const loadData = async () => {
     try {
@@ -87,9 +102,9 @@ const VideoAnalytics = () => {
       setProcessingVideo(null);
     }
   };
+
   const handlePlayVideo = async (videoId) => {
     try {
-      // Get the video stream URL from the backend
       const video = videos.find((v) => v.id === videoId);
       if (!video) {
         alert("Video not found");
@@ -103,56 +118,35 @@ const VideoAnalytics = () => {
         return;
       }
 
-      // Get the authentication token
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        alert("Authentication required. Please log in again.");
-        return;
-      }
-
-      // Create video stream URL with authentication token using the API utility
-      const streamUrl = videoAPI.getVideoStreamUrl(videoId);
-
-      // Test if video stream is accessible before opening
-      try {
-        const response = await fetch(streamUrl, { method: "HEAD" });
-        if (!response.ok) {
-          throw new Error(`Video stream not accessible: ${response.status}`);
-        }
-      } catch (fetchError) {
-        // If HEAD request fails, try to open anyway as some servers don't support HEAD
-        console.warn(
-          "HEAD request failed, attempting to open video anyway:",
-          fetchError
-        );
-      }
-
-      // Open video in a new window/tab
-      const newWindow = window.open(streamUrl, "_blank");
-      if (!newWindow) {
-        alert(
-          "Please allow pop-ups for this site to play videos in a new tab."
-        );
-      }
+      setSelectedVideo(video);
+      setShowVideoPopup(true);
     } catch (err) {
       console.error("Error playing video:", err);
-      let errorMessage = "Failed to play video";
-
-      if (err.message.includes("not accessible")) {
-        errorMessage =
-          "Video file is not accessible. It may have been moved or deleted.";
-      } else if (err.name === "TypeError" && err.message.includes("fetch")) {
-        errorMessage =
-          "Cannot connect to video server. Please check your connection.";
-      } else if (err.message.includes("401")) {
-        errorMessage = "Authentication failed. Please log in again.";
-      } else if (err.message.includes("403")) {
-        errorMessage =
-          "Access denied. You don't have permission to view this video.";
-      }
-
-      alert(errorMessage);
+      alert("Failed to play video. Please try again.");
     }
+  };
+
+  const handleCloseVideoPopup = () => {
+    setSelectedVideo(null);
+    setShowVideoPopup(false);
+  };
+
+  const getVideoStreamUrl = (videoId) => {
+    // First check if we have the video's direct URL in our state
+    const video = videos.find((v) => v.id === videoId);
+
+    // If video has a storage URL from Supabase Storage, use it directly
+    if (video?.file_url && video.storage_provider === "supabase") {
+      return video.file_url;
+    }
+
+    // Otherwise fall back to the backend streaming endpoint
+    return videoAPI.getVideoStreamUrl(videoId);
+  };
+
+  const formatFileSize = (bytes) => {
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
   };
 
   const getVideoEvents = (videoId) => {
@@ -324,7 +318,6 @@ const VideoAnalytics = () => {
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
               Video Analysis: {selectedVideo.original_name}
             </h3>
-
             <div className="space-y-6">
               {/* Events Chart */}
               {getVideoEvents(selectedVideo.id).length > 0 ? (
@@ -387,6 +380,122 @@ const VideoAnalytics = () => {
                   </div>
                 </div>
               )}
+            </div>{" "}
+          </div>
+        </div>
+      )}
+
+      {/* Simple Video Popup */}
+      {showVideoPopup && selectedVideo && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={handleCloseVideoPopup}
+            ></div>
+
+            {/* Modal content */}
+            <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900 truncate pr-4">
+                  {selectedVideo.original_name}
+                </h3>
+                <button
+                  onClick={handleCloseVideoPopup}
+                  className="flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition ease-in-out duration-150"
+                  aria-label="Close video player"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Video player */}
+              <div className="relative bg-black rounded-lg overflow-hidden shadow-inner">
+                <video
+                  controls
+                  className="w-full h-auto max-h-96"
+                  src={getVideoStreamUrl(selectedVideo.id)}
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+
+              {/* Video info */}
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-4 w-4 mr-1 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2"
+                      />
+                    </svg>
+                    <span className="font-medium">
+                      {formatFileSize(selectedVideo.file_size)}
+                    </span>
+                  </div>
+                  {selectedVideo.duration_seconds && (
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 mr-1 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>{Math.round(selectedVideo.duration_seconds)}s</span>
+                    </div>
+                  )}
+                  {selectedVideo.resolution && (
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 mr-1 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      <span>{selectedVideo.resolution}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  Press ESC to close this video player
+                </div>
+              </div>
             </div>
           </div>
         </div>

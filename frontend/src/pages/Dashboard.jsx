@@ -18,6 +18,8 @@ const Dashboard = () => {
   const [systemStatus, setSystemStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [showVideoPopup, setShowVideoPopup] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -115,11 +117,52 @@ const Dashboard = () => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
   const formatFileSize = (bytes) => {
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(1)} MB`;
   };
+
+  const handlePlayVideo = async (videoId) => {
+    try {
+      const video = videos.find((v) => v.id === videoId);
+      if (!video) {
+        alert("Video not found");
+        return;
+      }
+
+      if (video.upload_status !== "completed") {
+        alert(
+          "Video is still processing. Please wait until processing is complete."
+        );
+        return;
+      }
+
+      setSelectedVideo(video);
+      setShowVideoPopup(true);
+    } catch (err) {
+      console.error("Error playing video:", err);
+      alert("Failed to play video. Please try again.");
+    }
+  };
+
+  const handleCloseVideoPopup = () => {
+    setSelectedVideo(null);
+    setShowVideoPopup(false);
+  };
+
+  const getVideoStreamUrl = (videoId) => {
+    // First check if we have the video's direct URL in our state
+    const video = videos.find((v) => v.id === videoId);
+
+    // If video has a storage URL from Supabase Storage, use it directly
+    if (video?.file_url && video.storage_provider === "supabase") {
+      return video.file_url;
+    }
+
+    // Otherwise fall back to the backend streaming endpoint
+    return videoAPI.getVideoStreamUrl(videoId);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -348,13 +391,19 @@ const Dashboard = () => {
                   <li key={video.id} className="py-4">
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
-                        <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                          {video.upload_status === "processing" ? (
+                        {video.upload_status === "processing" ? (
+                          <div className="h-10 w-10 rounded-lg bg-gray-100 flex items-center justify-center">
                             <LoadingSpinner size="sm" />
-                          ) : (
-                            <PlayIcon className="h-5 w-5 text-gray-600" />
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handlePlayVideo(video.id)}
+                            className="h-10 w-10 rounded-lg bg-gray-100 hover:bg-blue-100 flex items-center justify-center transition-colors"
+                            title="Play Video"
+                          >
+                            <PlayIcon className="h-5 w-5 text-gray-600 hover:text-blue-600" />
+                          </button>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
@@ -423,7 +472,6 @@ const Dashboard = () => {
               View analytics
             </Link>
           </div>
-
           {recentEvents.length === 0 ? (
             <div className="text-center py-8">
               <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -474,9 +522,60 @@ const Dashboard = () => {
                 ))}
               </ul>
             </div>
-          )}
+          )}{" "}
         </div>
-      </div>
+      </div>{" "}
+      {/* Simple Video Popup */}
+      {showVideoPopup && selectedVideo && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+              onClick={handleCloseVideoPopup}
+            ></div>
+
+            {/* Modal content */}
+            <div className="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900 truncate pr-4">
+                  {selectedVideo.original_name}
+                </h3>
+                <button
+                  onClick={handleCloseVideoPopup}
+                  className="flex-shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Video player */}
+              <div className="relative bg-black rounded-lg overflow-hidden shadow-inner">
+                <video
+                  controls
+                  className="w-full h-auto max-h-96"
+                  src={getVideoStreamUrl(selectedVideo.id)}
+                  preload="metadata"
+                >
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

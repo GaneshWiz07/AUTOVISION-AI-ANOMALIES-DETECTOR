@@ -76,10 +76,11 @@ export const videoAPI = {
     const response = await api.post(`/videos/${videoId}/process`);
     return response.data;
   },
-
   getVideoStreamUrl: (videoId) => {
     const token = localStorage.getItem("access_token");
-    const baseUrl = API_BASE_URL;
+    // Use environment variable for API base URL, matching your original approach
+    const baseUrl =
+      import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
     return `${baseUrl}/videos/${videoId}/stream?token=${encodeURIComponent(
       token
     )}`;
@@ -143,9 +144,33 @@ export const systemAPI = {
     const response = await api.get(`/rag/patterns${params}`);
     return response.data;
   },
-
   getRAGStats: async () => {
     const response = await api.get("/rag/stats");
+    return response.data;
+  },
+};
+
+// Settings API
+export const settingsAPI = {
+  getSettings: async () => {
+    const response = await api.get("/settings");
+    return response.data;
+  },
+  updateSettings: async (settings) => {
+    const response = await api.put("/settings", settings);
+    return response.data;
+  },
+};
+
+// Video cleanup API
+export const cleanupAPI = {
+  getCleanupPreview: async () => {
+    const response = await api.get("/cleanup/preview");
+    return response.data;
+  },
+
+  runCleanup: async () => {
+    const response = await api.post("/cleanup/run");
     return response.data;
   },
 };

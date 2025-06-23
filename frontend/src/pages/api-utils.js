@@ -76,10 +76,11 @@ export const videoAPI = {
     const response = await api.post(`/videos/${videoId}/process`);
     return response.data;
   },
-
   getVideoStreamUrl: (videoId) => {
     const token = localStorage.getItem("access_token");
-    const baseUrl = API_BASE_URL;
+    // Use environment variable for API base URL, matching your original approach
+    const baseUrl =
+      import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
     return `${baseUrl}/videos/${videoId}/stream?token=${encodeURIComponent(
       token
     )}`;
