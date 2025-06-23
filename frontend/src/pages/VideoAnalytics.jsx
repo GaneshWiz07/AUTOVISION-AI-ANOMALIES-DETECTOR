@@ -21,28 +21,14 @@ import {
   TrashIcon,
   CloudArrowUpIcon,
   VideoCameraIcon,
-  HomeIcon,
-  CogIcon,
+  HomeIcon,  CogIcon,
 } from "@heroicons/react/24/outline";
-
-// Use API types directly
-type Video = APIVideo;
-type Event = APIEvent;
-
-interface AnalyticsData {
-  total_videos;
-  total_events;
-  total_alerts;
-  avg_anomaly_score;
-  processing_videos;
-  recent_activity;
-}
 
 const VideoAnalytics = () => {
   const location = useLocation();
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [videos, setVideos] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Settings state
@@ -82,7 +68,7 @@ const VideoAnalytics = () => {
         const videosData = await videoAPI.getVideos();
         const processingVideos =
           videosData.videos?.filter(
-            (v: APIVideo) => v.upload_status === "processing"
+            (v) => v.upload_status === "processing"
           ) || [];
 
         if (processingVideos.length > 0) {
@@ -112,22 +98,22 @@ const VideoAnalytics = () => {
 
       setVideos(videosData.videos || []);
       setEvents(eventsData.events || []); // Calculate analytics
-      const analyticsData: AnalyticsData = {
-        total_videos: videosData.videos?.length || 0,
-        total_events: eventsData.events?.length || 0,
+      const analyticsData = {
+        total_videossData.videos?.length || 0,
+        total_eventssData.events?.length || 0,
         total_alerts:
-          eventsData.events?.filter((e: APIEvent) => e.is_alert).length || 0,
-        avg_anomaly_score: eventsData.events?.length
+          eventsData.events?.filter((e) => e.is_alert).length || 0,
+        avg_anomaly_scoresData.events?.length
           ? eventsData.events.reduce(
-              (sum, e: APIEvent) => sum + e.anomaly_score,
+              (sum, e) => sum + e.anomaly_score,
               0
             ) / eventsData.events.length
           : 0,
         processing_videos:
           videosData.videos?.filter(
-            (v: APIVideo) => v.upload_status === "processing"
+            (v) => v.upload_status === "processing"
           ).length || 0,
-        recent_activity: eventsData.events?.slice(0, 10) || [],
+        recent_activitysData.events?.slice(0, 10) || [],
       };
 
       setAnalytics(analyticsData);
@@ -139,16 +125,16 @@ const VideoAnalytics = () => {
   };
   const handleUploadSuccess = (videoData) => {
     // Transform the upload result to match the Video interface
-    const transformedVideo: Video = {
-      id: videoData.video_id,
-      filename: videoData.filename,
-      original_name: videoData.original_name,
+    const transformedVideo = {
+      idData.video_id,
+      filenameData.filename,
+      original_nameData.original_name,
       file_path: "",
-      file_size: videoData.metadata?.file_size || 0,
-      duration_seconds: videoData.metadata?.duration,
-      fps: videoData.metadata?.fps,
-      resolution: videoData.metadata?.resolution,
-      upload_status: videoData.status || "completed",
+      file_sizeData.metadata?.file_size || 0,
+      duration_secondsData.metadata?.duration,
+      fpsData.metadata?.fps,
+      resolutionData.metadata?.resolution,
+      upload_statusData.status || "completed",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -173,7 +159,7 @@ const VideoAnalytics = () => {
       setError(err.message || "Failed to delete video");
     }
   };
-  const handlePlayVideo = (video: Video) => {
+  const handlePlayVideo = (video) => {
     setSelectedVideo(video);
     setShowVideoPopup(true);
   };
@@ -201,7 +187,7 @@ const VideoAnalytics = () => {
 
   // Handle escape key to close video popup
   useEffect(() => {
-    const handleEscapeKey = (event: KeyboardEvent) => {
+    const handleEscapeKey = (event) => {
       if (event.key === "Escape" && showVideoPopup) {
         handleCloseVideoPopup();
       }
@@ -254,7 +240,7 @@ const VideoAnalytics = () => {
     }
   };
 
-  const updateSetting = async (key: keyof UserSettings, value) => {
+  const updateSetting = async (key, value) => {
     try {
       setSettingsLoading(true);
       const updatedSettings = await settingsAPI.updateSettings({
@@ -412,7 +398,7 @@ const VideoAnalytics = () => {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
                   activeTab === tab.id
                     ? "bg-primary-100 text-primary-700"
@@ -833,7 +819,7 @@ const VideoAnalytics = () => {
                             acc[event.event_type] =
                               (acc[event.event_type] || 0) + 1;
                             return acc;
-                          }, {} as Record<string, number>)
+                          }, {})
                         ).map(([eventType, count]) => (
                           <div
                             key={eventType}
@@ -846,20 +832,20 @@ const VideoAnalytics = () => {
                               <div className="w-20 bg-gray-200 rounded-full h-2 relative">
                                 <div
                                   className={`bg-blue-500 h-2 rounded-full absolute left-0 top-0 ${
-                                    (count as number) / events.length > 0.75
+                                    (count) / events.length > 0.75
                                       ? "w-full"
-                                      : (count as number) / events.length > 0.5
+                                      : (count) / events.length > 0.5
                                       ? "w-3/4"
-                                      : (count as number) / events.length > 0.25
+                                      : (count) / events.length > 0.25
                                       ? "w-1/2"
-                                      : (count as number) / events.length > 0.1
+                                      : (count) / events.length > 0.1
                                       ? "w-1/4"
                                       : "w-1/12"
                                   }`}
                                 ></div>
                               </div>
                               <span className="text-sm text-gray-500 w-8">
-                                {count as number}
+                                {count}
                               </span>
                             </div>
                           </div>
