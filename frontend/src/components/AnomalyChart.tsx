@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { Event } from "../lib/api";
+import { Event } from "@/lib/api";
 
 interface AnomalyChartProps {
   events: Event[];

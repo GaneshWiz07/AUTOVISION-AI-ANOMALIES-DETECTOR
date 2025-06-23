@@ -1,7 +1,7 @@
 // Module declaration file to help with TypeScript compilation
 
-// Specific declaration for the API module (must come before wildcards)
-declare module '../lib/api' {
+// Specific declaration for the API module with path mapping
+declare module '@/lib/api' {
   export interface AuthUser {
     id: string;
     email: string;
@@ -110,6 +110,15 @@ declare module '../lib/api' {
   export default api;
 }
 
+// Also declare for relative paths
+declare module '../lib/api' {
+  export * from '@/lib/api';
+}
+
+declare module './lib/api' {
+  export * from '@/lib/api';
+}
+
 // Component module declarations
 declare module '*.tsx' {
   const component: React.ComponentType<any>;
@@ -153,23 +162,65 @@ declare interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// Basic React types if not available
-declare namespace React {
-  interface ComponentType<P = {}> {
-    (props: P): JSX.Element | null;
-  }
-  
-  interface FC<P = {}> extends ComponentType<P> {}
-  
-  interface ReactNode {
-    [key: string]: any;
+// React module declarations
+declare module 'react' {
+  export * from 'react';
+  export = React;
+  export as namespace React;
+  namespace React {
+    interface ComponentType<P = {}> {
+      (props: P): JSX.Element | null;
+    }
+    interface FC<P = {}> extends ComponentType<P> {}
+    type ReactNode = any;
+    function useState<T>(initialState: T | (() => T)): [T, (value: T | ((prev: T) => T)) => void];
+    function useEffect(effect: () => void | (() => void), deps?: any[]): void;
+    function useContext<T>(context: any): T;
+    function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T;
+    function createContext<T>(defaultValue: T): any;
+    const Fragment: any;
+    const StrictMode: any;
   }
 }
 
-declare namespace JSX {
-  interface IntrinsicElements {
-    [elemName: string]: any;
-  }
-  
-  interface Element extends React.ReactNode {}
+declare module 'react-dom/client' {
+  export function createRoot(container: Element): {
+    render: (element: any) => void;
+  };
+}
+
+declare module 'react-router-dom' {
+  export const BrowserRouter: any;
+  export const Routes: any;
+  export const Route: any;
+  export const Link: any;
+  export const Navigate: any;
+  export function useNavigate(): any;
+  export function useParams(): any;
+  export function useSearchParams(): any;
+}
+
+declare module '@heroicons/react/24/outline' {
+  export const PlayIcon: any;
+  export const EyeIcon: any;
+  export const TrashIcon: any;
+  export const VideoCameraIcon: any;
+  export const ExclamationTriangleIcon: any;
+  export const ChartBarIcon: any;
+  export const CogIcon: any;
+  export const ArrowPathIcon: any;
+  export const CheckCircleIcon: any;
+  export const XCircleIcon: any;
+  export const InformationCircleIcon: any;
+  export const CloudArrowUpIcon: any;
+}
+
+declare module 'react-dropzone' {
+  export function useDropzone(options: any): any;
+}
+
+declare module 'react/jsx-runtime' {
+  export const jsx: any;
+  export const jsxs: any;
+  export const Fragment: any;
 }

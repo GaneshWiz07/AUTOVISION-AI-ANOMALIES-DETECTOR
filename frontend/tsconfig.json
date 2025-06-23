@@ -19,16 +19,13 @@
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-
-    /* Path mapping */
-    "baseUrl": ".",
+    "esModuleInterop": true,    /* Path mapping */
+    "baseUrl": "./src",
     "paths": {
-      "@/*": ["./src/*"],
-      "../lib/*": ["./src/lib/*"],
-      "./lib/*": ["./src/lib/*"]
+      "@/*": ["./*"],
+      "@/lib/*": ["./lib/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "src/types/**/*"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
