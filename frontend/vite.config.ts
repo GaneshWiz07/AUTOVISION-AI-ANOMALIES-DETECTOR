@@ -5,10 +5,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
-  },
-  esbuild: {
-    jsx: "automatic",
+    extensions: [".js", ".jsx", ".ts", ".tsx", ".json"],
   },
   server: {
     port: 3000,
@@ -18,14 +15,12 @@ export default defineConfig({
         target: "https://autovision-ai-server.onrender.com",
         changeOrigin: true,
         secure: true,
-        // Don't rewrite the path - keep /api/v1 intact
       },
     },
   },
   build: {
     outDir: "dist",
     sourcemap: false,
-    // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
