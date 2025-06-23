@@ -10,6 +10,9 @@ export default defineConfig({
   },
   resolve: {
     extensions: [".js", ".jsx", ".json"],
+    alias: {
+      "@": "/src",
+    },
   },
   server: {
     port: 3000,
@@ -33,6 +36,7 @@ export default defineConfig({
           router: ["react-router-dom"],
         },
       },
+      external: [],
     },
   },
   define: {
