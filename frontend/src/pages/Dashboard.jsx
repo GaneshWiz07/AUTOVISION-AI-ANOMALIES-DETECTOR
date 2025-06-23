@@ -11,7 +11,7 @@ import {
   PlayIcon,
 } from "@heroicons/react/24/outline";
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const [videos, setVideos] = useState<Video[]>([]);
   const [recentEvents, setRecentEvents] = useState<Event[]>([]);
   const [systemStatus, setSystemStatus] = useState<any>(null);
@@ -64,7 +64,7 @@ const Dashboard: React.FC = () => {
         events: eventsData.events?.length || 0,
         status: statusResponse?.status || "unknown",
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error loading dashboard data:", err);
 
       // Better error handling for different error types
@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case "completed":
         return "text-green-600 bg-green-100";
@@ -110,13 +110,13 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes) => {
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(1)} MB`;
   };

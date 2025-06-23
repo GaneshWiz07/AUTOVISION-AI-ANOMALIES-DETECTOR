@@ -30,15 +30,15 @@ type Video = APIVideo;
 type Event = APIEvent;
 
 interface AnalyticsData {
-  total_videos: number;
-  total_events: number;
-  total_alerts: number;
-  avg_anomaly_score: number;
-  processing_videos: number;
-  recent_activity: Event[];
+  total_videos;
+  total_events;
+  total_alerts;
+  avg_anomaly_score;
+  processing_videos;
+  recent_activity;
 }
 
-const VideoAnalytics: React.FC = () => {
+const VideoAnalytics = () => {
   const location = useLocation();
   const [videos, setVideos] = useState<Video[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -119,7 +119,7 @@ const VideoAnalytics: React.FC = () => {
           eventsData.events?.filter((e: APIEvent) => e.is_alert).length || 0,
         avg_anomaly_score: eventsData.events?.length
           ? eventsData.events.reduce(
-              (sum: number, e: APIEvent) => sum + e.anomaly_score,
+              (sum, e: APIEvent) => sum + e.anomaly_score,
               0
             ) / eventsData.events.length
           : 0,
@@ -131,13 +131,13 @@ const VideoAnalytics: React.FC = () => {
       };
 
       setAnalytics(analyticsData);
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || "Failed to fetch data");
     } finally {
       setLoading(false);
     }
   };
-  const handleUploadSuccess = (videoData: any) => {
+  const handleUploadSuccess = (videoData) => {
     // Transform the upload result to match the Video interface
     const transformedVideo: Video = {
       id: videoData.video_id,
@@ -156,7 +156,7 @@ const VideoAnalytics: React.FC = () => {
     fetchData(); // Refresh all data
   };
 
-  const handleDeleteVideo = async (videoId: string) => {
+  const handleDeleteVideo = async (videoId) => {
     if (!window.confirm("Are you sure you want to delete this video?")) return;
 
     try {
@@ -168,7 +168,7 @@ const VideoAnalytics: React.FC = () => {
 
       // Refresh analytics data after deletion
       fetchData();
-    } catch (err: any) {
+    } catch (err) {
       console.error("Delete video error:", err);
       setError(err.message || "Failed to delete video");
     }
@@ -182,7 +182,7 @@ const VideoAnalytics: React.FC = () => {
     setSelectedVideo(null);
     setShowVideoPopup(false);
   }; // Get video stream URL with auth token or direct storage URL
-  const getVideoStreamUrl = (videoId: string) => {
+  const getVideoStreamUrl = (videoId) => {
     // First check if we have the video's direct URL in our state
     const video = videos.find((v) => v.id === videoId);
 
@@ -214,14 +214,14 @@ const VideoAnalytics: React.FC = () => {
       };
     }
   }, [showVideoPopup]);
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes) => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     if (bytes === 0) return "0 Bytes";
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case "completed":
         return "text-green-600 bg-green-100";
@@ -233,7 +233,7 @@ const VideoAnalytics: React.FC = () => {
         return "text-gray-600 bg-gray-100";
     }
   };
-  const getSeverityColor = (anomalyScore: number) => {
+  const getSeverityColor = (anomalyScore) => {
     if (anomalyScore >= 0.8) return "text-red-600 bg-red-100";
     if (anomalyScore >= 0.6) return "text-orange-600 bg-orange-100";
     if (anomalyScore >= 0.4) return "text-yellow-600 bg-yellow-100";
@@ -246,7 +246,7 @@ const VideoAnalytics: React.FC = () => {
       setSettingsLoading(true);
       const userSettings = await settingsAPI.getSettings();
       setSettings(userSettings);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error fetching settings:", err);
       // Keep default settings on error
     } finally {
@@ -254,7 +254,7 @@ const VideoAnalytics: React.FC = () => {
     }
   };
 
-  const updateSetting = async (key: keyof UserSettings, value: any) => {
+  const updateSetting = async (key: keyof UserSettings, value) => {
     try {
       setSettingsLoading(true);
       const updatedSettings = await settingsAPI.updateSettings({
@@ -263,7 +263,7 @@ const VideoAnalytics: React.FC = () => {
       setSettings(updatedSettings);
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 2000);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error updating setting:", err);
       console.error("Error details:", {
         status: err.response?.status,
@@ -292,7 +292,7 @@ const VideoAnalytics: React.FC = () => {
       setCleanupLoading(true);
       const preview = await cleanupAPI.getCleanupPreview();
       setCleanupPreview(preview);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error fetching cleanup preview:", err);
       setError(err.response?.data?.detail || "Failed to fetch cleanup preview");
     } finally {
@@ -320,7 +320,7 @@ const VideoAnalytics: React.FC = () => {
       fetchData();
       setShowCleanupPreview(false);
       setCleanupPreview(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error running cleanup:", err);
       setError(err.response?.data?.detail || "Failed to run cleanup");
     } finally {
@@ -1125,7 +1125,7 @@ const VideoAnalytics: React.FC = () => {
                           </div>
                           {cleanupPreview.videos && (
                             <div className="space-y-2 max-h-40 overflow-y-auto mb-4">
-                              {cleanupPreview.videos.map((video: any) => (
+                              {cleanupPreview.videos.map((video) => (
                                 <div
                                   key={video.id}
                                   className="flex justify-between items-center p-2 bg-gray-50 rounded"

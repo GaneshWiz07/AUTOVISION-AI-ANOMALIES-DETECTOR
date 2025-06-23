@@ -1,23 +1,15 @@
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { videoAPI } from "../lib/api.ts";
+import { videoAPI } from "../lib/api";
 import { CloudArrowUpIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
-interface VideoUploadProps {
-  onUploadSuccess?: (videoData: any) => void;
-  onUploadError?: (error: string) => void;
-}
-
-const VideoUpload: React.FC<VideoUploadProps> = ({
-  onUploadSuccess,
-  onUploadError,
-}) => {
+const VideoUpload = ({ onUploadSuccess, onUploadError }) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles) => {
       const file = acceptedFiles[0];
       if (!file) return;
 
@@ -68,7 +60,7 @@ const VideoUpload: React.FC<VideoUploadProps> = ({
           setUploadSuccess(false);
           onUploadSuccess?.(result);
         }, 2000);
-      } catch (error: any) {
+      } catch (error) {
         setUploading(false);
         setUploadProgress(0);
         setUploadSuccess(false);

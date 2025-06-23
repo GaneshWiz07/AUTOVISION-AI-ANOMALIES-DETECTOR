@@ -24,12 +24,12 @@ const AnomalyChart = ({ events, threshold = 0.7, height = 300 }) => {
       frame_number: event.frame_number,
     }));
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -73,7 +73,7 @@ const AnomalyChart = ({ events, threshold = 0.7, height = 300 }) => {
     return null;
   };
 
-  const getPointColor = (score: number, isAlert: boolean) => {
+  const getPointColor = (score, isAlert) => {
     if (isAlert) return "#dc2626"; // red-600
     if (score > threshold) return "#f59e0b"; // amber-500
     return "#22c55e"; // green-500
@@ -137,7 +137,7 @@ const AnomalyChart = ({ events, threshold = 0.7, height = 300 }) => {
               dataKey="anomaly_score"
               stroke="#3b82f6"
               strokeWidth={2}
-              dot={(props: any) => {
+              dot={(props) => {
                 const { cx, cy, payload } = props;
                 return (
                   <circle
