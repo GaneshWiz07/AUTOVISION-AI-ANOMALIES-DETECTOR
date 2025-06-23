@@ -13,7 +13,7 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -21,7 +21,7 @@ const Login = () => {
     try {
       await login(email, password);
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
       setError(error.response?.data?.detail || "Login failed");
     } finally {
       setLoading(false);

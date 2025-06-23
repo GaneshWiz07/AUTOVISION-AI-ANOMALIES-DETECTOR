@@ -16,7 +16,7 @@ const SignUp = () => {
   const { signup, verificationMessage, clearVerificationMessage } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     clearVerificationMessage(); // Clear any previous verification message
@@ -40,7 +40,7 @@ const SignUp = () => {
         navigate("/");
       }
       // If verification is required, the green message will be shown automatically
-    } catch (error: any) {
+    } catch (error) {
       setError(
         error.response?.data?.detail || error.message || "Sign up failed"
       );

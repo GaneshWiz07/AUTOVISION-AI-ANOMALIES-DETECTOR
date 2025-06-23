@@ -12,9 +12,9 @@ import {
 } from "@heroicons/react/24/outline";
 
 const Dashboard = () => {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [recentEvents, setRecentEvents] = useState<Event[]>([]);
-  const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [videos, setVideos] = useState([]);
+  const [recentEvents, setRecentEvents] = useState([]);
+  const [systemStatus, setSystemStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,9 +26,8 @@ const Dashboard = () => {
       try {
         const videosData = await videoAPI.getVideos();
         const processingVideos =
-          videosData.videos?.filter(
-            (v: Video) => v.upload_status === "processing"
-          ) || [];
+          videosData.videos?.filter((v) => v.upload_status === "processing") ||
+          [];
 
         if (processingVideos.length > 0) {
           // Refresh data if there are processing videos
