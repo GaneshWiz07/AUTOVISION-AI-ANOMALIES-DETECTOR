@@ -72,10 +72,17 @@ export const videoAPI = {
     const response = await api.get(`/videos/${videoId}/events`);
     return response.data;
   },
-
   processVideo: async (videoId) => {
     const response = await api.post(`/videos/${videoId}/process`);
     return response.data;
+  },
+
+  getVideoStreamUrl: (videoId) => {
+    const token = localStorage.getItem("access_token");
+    const baseUrl = API_BASE_URL;
+    return `${baseUrl}/videos/${videoId}/stream?token=${encodeURIComponent(
+      token
+    )}`;
   },
 };
 

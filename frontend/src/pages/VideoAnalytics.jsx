@@ -103,13 +103,28 @@ const VideoAnalytics = () => {
         return;
       }
 
-      // Try to get video stream URL - this depends on your backend implementation
-      const streamUrl = `/api/v1/videos/${videoId}/stream`;
+      // Get the authentication token
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        alert("Authentication required. Please log in again.");
+        return;
+      }
+
+      // Create video stream URL with authentication token using the API utility
+      const streamUrl = videoAPI.getVideoStreamUrl(videoId);
 
       // Test if video stream is accessible before opening
-      const response = await fetch(streamUrl, { method: "HEAD" });
-      if (!response.ok) {
-        throw new Error(`Video stream not accessible: ${response.status}`);
+      try {
+        const response = await fetch(streamUrl, { method: "HEAD" });
+        if (!response.ok) {
+          throw new Error(`Video stream not accessible: ${response.status}`);
+        }
+      } catch (fetchError) {
+        // If HEAD request fails, try to open anyway as some servers don't support HEAD
+        console.warn(
+          "HEAD request failed, attempting to open video anyway:",
+          fetchError
+        );
       }
 
       // Open video in a new window/tab
@@ -129,6 +144,11 @@ const VideoAnalytics = () => {
       } else if (err.name === "TypeError" && err.message.includes("fetch")) {
         errorMessage =
           "Cannot connect to video server. Please check your connection.";
+      } else if (err.message.includes("401")) {
+        errorMessage = "Authentication failed. Please log in again.";
+      } else if (err.message.includes("403")) {
+        errorMessage =
+          "Access denied. You don't have permission to view this video.";
       }
 
       alert(errorMessage);
