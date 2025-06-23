@@ -11,7 +11,7 @@ import {
   Video as APIVideo,
   Event as APIEvent,
   UserSettings,
-} from "../lib/index";
+} from "../lib/api.ts";
 import {
   PlayIcon,
   DocumentTextIcon,
