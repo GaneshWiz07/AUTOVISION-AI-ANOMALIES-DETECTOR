@@ -1,27 +1,17 @@
-import { Component, ErrorInfo, ReactNode } from "react";
+import { Component } from "react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
-
-interface State {
-  hasError: boolean;
-  error?: Error;
-}
-
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+class ErrorBoundary extends Component {
+  constructor(props) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error, errorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 

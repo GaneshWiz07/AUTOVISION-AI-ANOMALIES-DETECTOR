@@ -9,19 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { Event } from "../lib/api.ts";
-
-interface AnomalyChartProps {
-  events: Event[];
-  threshold?: number;
-  height?: number;
-}
-
-const AnomalyChart: React.FC<AnomalyChartProps> = ({
-  events,
-  threshold = 0.7,
-  height = 300,
-}) => {
+const AnomalyChart = ({ events, threshold = 0.7, height = 300 }) => {
   // Prepare data for the chart
   const chartData = events
     .sort((a, b) => a.timestamp_seconds - b.timestamp_seconds)
