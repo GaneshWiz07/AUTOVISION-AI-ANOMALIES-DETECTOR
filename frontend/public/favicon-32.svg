@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#2563eb" rx="4"/>
+  
+  <!-- Camera body -->
+  <rect x="6" y="12" width="16" height="10" rx="2" fill="#ffffff"/>
+  
+  <!-- Camera lens -->
+  <circle cx="14" cy="17" r="4" fill="#334155"/>
+  <circle cx="14" cy="17" r="2.5" fill="#1e293b"/>
+  
+  <!-- Lens center -->
+  <circle cx="14" cy="17" r="1" fill="#64748b"/>
+  
+  <!-- Status light -->
+  <circle cx="8" cy="15" r="1" fill="#ef4444"/>
+  
+  <!-- Mount -->
+  <rect x="12" y="9" width="4" height="4" rx="1" fill="#e5e7eb"/>
+  
+  <!-- AI dots -->
+  <circle cx="11" cy="25" r="0.8" fill="#10b981"/>
+  <circle cx="14" cy="25" r="0.8" fill="#10b981"/>
+  <circle cx="17" cy="25" r="0.8" fill="#10b981"/>
+</svg>

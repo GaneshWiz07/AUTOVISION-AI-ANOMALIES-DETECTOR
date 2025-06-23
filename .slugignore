@@ -1,0 +1,45 @@
+# Render .slugignore file
+
+# Files and directories listed here will not be deployed to Render
+
+# Test files
+
+tests/
+_.test.js
+_.test.ts
+\*.test.tsx
+
+# Development utilities
+
+demo.py
+cleanup.py
+start.py
+\*.log
+
+# Local dev files
+
+.vscode/
+.idea/
+_.swp
+_.swo
+\*~
+
+# Temporary files
+
+backend/**pycache**/ \*_/**pycache**/
+_.py[cod]
+_$py.class
+_.so
+
+# Local environment
+
+.env.local
+.env.development
+
+# Build artifacts
+
+frontend/node_modules/
+
+# Documentation
+
+docs/
