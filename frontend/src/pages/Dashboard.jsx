@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { videoAPI, eventAPI, systemAPI, Video, Event } from "../lib/api.ts";
+import { videoAPI, eventAPI, systemAPI } from "../lib/api.js";
 import AnomalyChart from "../components/AnomalyChart";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
