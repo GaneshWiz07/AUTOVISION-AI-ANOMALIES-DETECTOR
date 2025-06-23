@@ -39,11 +39,27 @@ const SignUp = () => {
       if (!result.verificationRequired) {
         navigate("/");
       }
-      // If verification is required, the green message will be shown automatically
-    } catch (error) {
-      setError(
-        error.response?.data?.detail || error.message || "Sign up failed"
-      );
+      // If verification is required, the green message will be shown automatically    } catch (error) {
+      console.error("Signup error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+      });
+
+      let errorMessage = "Sign up failed";
+
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.status === 400) {
+        errorMessage = "Invalid signup data. Please check your information.";
+      } else if (error.response?.status === 409) {
+        errorMessage = "An account with this email already exists.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,8 @@ import axios from "axios";
 // API configuration
 const API_BASE_URL = import.meta.env.DEV
   ? "/api/v1"
-  : import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
+  : import.meta.env.VITE_API_URL ||
+    "https://autovision-ai-server.onrender.com/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -80,7 +81,8 @@ export const videoAPI = {
     const token = localStorage.getItem("access_token");
     // Use environment variable for API base URL, matching your original approach
     const baseUrl =
-      import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
+      import.meta.env.VITE_API_URL ||
+      "https://autovision-ai-server.onrender.com/api/v1";
     return `${baseUrl}/videos/${videoId}/stream?token=${encodeURIComponent(
       token
     )}`;

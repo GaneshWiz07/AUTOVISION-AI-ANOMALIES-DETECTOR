@@ -3,8 +3,9 @@ import axios from "axios";
 
 // Inline API configuration to avoid import issues
 const API_BASE_URL = import.meta.env.DEV
-  ? "/api/v1"
-  : import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
+  ? "/api/v1" // Use Vite proxy in development
+  : import.meta.env.VITE_API_URL ||
+    "https://autovision-ai-server.onrender.com/api/v1";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -41,13 +42,13 @@ const authAPI = {
     const response = await api.post("/auth/login", { email, password });
     return response.data;
   },
-
   signup: async (email, password, full_name) => {
-    const response = await api.post("/auth/signup", {
-      email,
-      password,
-      full_name,
-    });
+    const payload = { email, password };
+    if (full_name && full_name.trim()) {
+      payload.full_name = full_name.trim();
+    }
+
+    const response = await api.post("/auth/signup", payload);
     return response.data;
   },
 
@@ -131,14 +132,15 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   };
-
   const signup = async (email, password, fullName) => {
     try {
       const response = await authAPI.signup(email, password, fullName);
 
-      if (response.verification_required) {
+      // Check if verification is required (backend returns verification_required: true)
+      if (response.verification_required === true) {
         setVerificationMessage(
-          "Please check your email and click the verification link before logging in."
+          response.message ||
+            "Please check your email and click the verification link before logging in."
         );
         return { verificationRequired: true };
       }
