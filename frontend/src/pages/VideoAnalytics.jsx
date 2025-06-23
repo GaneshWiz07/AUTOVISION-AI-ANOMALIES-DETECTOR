@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { videoAPI, eventAPI } from "../lib/api.js";
+import { videoAPI, eventAPI } from "./api-utils.js";
 import AnomalyChart from "../components/AnomalyChart";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {

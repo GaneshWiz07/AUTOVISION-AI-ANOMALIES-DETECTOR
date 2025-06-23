@@ -1,5 +1,74 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { authAPI } from "../lib/api.js";
+import axios from "axios";
+
+// Inline API configuration to avoid import issues
+const API_BASE_URL = import.meta.env.DEV
+  ? "/api/v1"
+  : import.meta.env.VITE_API_URL || "http://localhost:12000/api/v1";
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Inline auth API functions
+const authAPI = {
+  login: async (email, password) => {
+    const response = await api.post("/auth/login", { email, password });
+    return response.data;
+  },
+
+  signup: async (email, password, full_name) => {
+    const response = await api.post("/auth/signup", {
+      email,
+      password,
+      full_name,
+    });
+    return response.data;
+  },
+
+  logout: async () => {
+    await api.post("/auth/logout");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  },
+
+  getCurrentUser: async () => {
+    const response = await api.get("/auth/me");
+    return response.data;
+  },
+
+  refreshToken: async (refreshToken) => {
+    const response = await api.post("/auth/refresh", {
+      refresh_token: refreshToken,
+    });
+    return response.data;
+  },
+};
 
 const AuthContext = createContext();
 
