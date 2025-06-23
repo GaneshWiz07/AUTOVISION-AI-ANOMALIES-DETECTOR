@@ -827,6 +827,7 @@ const VideoAnalytics: React.FC = () => {
                         Event Type Distribution
                       </h3>
                       <div className="space-y-3">
+                        {" "}
                         {Object.entries(
                           events.reduce((acc, event) => {
                             acc[event.event_type] =
@@ -845,20 +846,20 @@ const VideoAnalytics: React.FC = () => {
                               <div className="w-20 bg-gray-200 rounded-full h-2 relative">
                                 <div
                                   className={`bg-blue-500 h-2 rounded-full absolute left-0 top-0 ${
-                                    count / events.length > 0.75
+                                    (count as number) / events.length > 0.75
                                       ? "w-full"
-                                      : count / events.length > 0.5
+                                      : (count as number) / events.length > 0.5
                                       ? "w-3/4"
-                                      : count / events.length > 0.25
+                                      : (count as number) / events.length > 0.25
                                       ? "w-1/2"
-                                      : count / events.length > 0.1
+                                      : (count as number) / events.length > 0.1
                                       ? "w-1/4"
                                       : "w-1/12"
                                   }`}
                                 ></div>
                               </div>
                               <span className="text-sm text-gray-500 w-8">
-                                {count}
+                                {count as number}
                               </span>
                             </div>
                           </div>
