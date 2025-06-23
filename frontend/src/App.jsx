@@ -15,9 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import VideoAnalytics from "./pages/VideoAnalytics";
 
 // Protected Route component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
@@ -32,7 +30,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 };
 
 // Public Route component (redirect to dashboard if authenticated)
-const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
