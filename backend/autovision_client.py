@@ -15,6 +15,7 @@ import requests
 
 class SupabaseClient:
     """Supabase client wrapper with AutoVision-specific methods"""
+    
     def __init__(self):
         self.url = os.getenv("SUPABASE_URL")
         self.anon_key = os.getenv("SUPABASE_ANON_KEY")
