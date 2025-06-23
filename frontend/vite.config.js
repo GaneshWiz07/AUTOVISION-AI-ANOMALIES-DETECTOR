@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -11,13 +10,6 @@ export default defineConfig({
   },
   resolve: {
     extensions: [".js", ".jsx", ".json"],
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@lib": path.resolve(__dirname, "./src/lib"),
-      "@components": path.resolve(__dirname, "./src/components"),
-      "@pages": path.resolve(__dirname, "./src/pages"),
-      "@contexts": path.resolve(__dirname, "./src/contexts"),
-    },
   },
   server: {
     port: 3000,
