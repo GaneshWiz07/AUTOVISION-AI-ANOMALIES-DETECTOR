@@ -1,9 +1,23 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { copyFileSync } from "fs";
+
+// Custom plugin to copy _redirects file
+const copyRedirects = () => ({
+  name: 'copy-redirects',
+  closeBundle() {
+    try {
+      copyFileSync('public/_redirects', 'dist/_redirects');
+      console.log('_redirects file copied to dist/');
+    } catch (error) {
+      console.warn('Could not copy _redirects file:', error.message);
+    }
+  }
+});
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copyRedirects()],
   esbuild: {
     jsx: "automatic",
     loader: "jsx",
@@ -38,6 +52,10 @@ export default defineConfig({
       },
       external: [],
     },
+  },
+  preview: {
+    port: 4173,
+    host: true,
   },
   define: {
     global: "globalThis",
