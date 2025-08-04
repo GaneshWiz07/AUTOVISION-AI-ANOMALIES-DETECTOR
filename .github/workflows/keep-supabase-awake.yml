@@ -1,0 +1,44 @@
+name: Keep Supabase Awake
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:        # Optional: Manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          # Ping the user_profiles table (lightweight read operation)
+          response=$(curl -s -w "%{http_code}" -o /dev/null \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/user_profiles?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          
+          echo "Response code: $response"
+          
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Supabase ping successful"
+          else
+            echo "❌ Supabase ping failed with code: $response"
+            exit 1
+          fi
+
+      - name: Ping Backend Health Endpoint (if deployed)
+        continue-on-error: true  # Don't fail the workflow if backend is not deployed
+        run: |
+          # Only ping if BACKEND_URL is set
+          if [ -n "${{ secrets.BACKEND_URL }}" ]; then
+            response=$(curl -s -w "%{http_code}" -o /dev/null "${{ secrets.BACKEND_URL }}/health")
+            echo "Backend health check response: $response"
+            
+            if [ "$response" -eq 200 ]; then
+              echo "✅ Backend health check successful"
+            else
+              echo "⚠️ Backend health check failed with code: $response"
+            fi
+          else
+            echo "ℹ️ BACKEND_URL not set, skipping backend ping"
+          fi
