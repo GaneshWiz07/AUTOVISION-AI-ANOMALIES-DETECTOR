@@ -55,10 +55,11 @@ class VideoMetadata:
 class FrameProcessor:
     """Processes individual video frames"""
     
-    def __init__(self, anomaly_detector, rl_controller, rag_system):
+    def __init__(self, anomaly_detector, rl_controller, rag_system, user_id=None):
         self.anomaly_detector = anomaly_detector
         self.rl_controller = rl_controller
         self.rag_system = rag_system
+        self.user_id = user_id
         self.frame_sampling_rate = int(os.getenv("FRAME_SAMPLING_RATE", "5"))
     
     async def process_frame(self, frame: np.ndarray, frame_number: int, 
@@ -120,6 +121,10 @@ class FrameProcessor:
             is_anomaly_bool = bool(detection_result["is_anomaly"])
             if is_anomaly_bool:
                 if hasattr(self.rag_system, 'add_pattern'):
+                    # Update RAG system user_id if not set
+                    if self.user_id and not self.rag_system.user_id:
+                        self.rag_system.user_id = self.user_id
+                    
                     self.rag_system.add_pattern(
                         pattern_type=anomaly_type,
                         description=description,
@@ -198,10 +203,11 @@ class VideoProcessor:
         from ai_models.simple_rl_controller import create_rl_controller
         from ai_models.simple_rag_system import create_rag_system
         
-        # Initialize AI models
+        # Initialize AI models with Supabase client
+        # Note: user_id will be set per-video during processing
         self.anomaly_detector = create_anomaly_detector()
-        self.rl_controller = create_rl_controller()
-        self.rag_system = create_rag_system()
+        self.rl_controller = create_rl_controller(supabase_client=supabase_client, user_id=None)
+        self.rag_system = create_rag_system(supabase_client=supabase_client, user_id=None)
         
         # Verify the RAG system has the required method
         if not hasattr(self.rag_system, 'analyze_detection'):
@@ -209,11 +215,12 @@ class VideoProcessor:
         else:
             logger.info("RAG system successfully loaded with analyze_detection method")
         
-        # Initialize frame processor
+        # Initialize frame processor (user_id will be set per-video)
         self.frame_processor = FrameProcessor(
             self.anomaly_detector,
             self.rl_controller,
-            self.rag_system
+            self.rag_system,
+            user_id=None
         )
           # Processing queue
         self.processing_queue = asyncio.Queue()
@@ -363,6 +370,11 @@ class VideoProcessor:
         filepath = job["filepath"]
         metadata = job["metadata"]
         cleanup_dir = job["cleanup_dir"]
+        
+        # Set user_id for AI models for this video processing session
+        self.rl_controller.user_id = user_id
+        self.rag_system.user_id = user_id
+        self.frame_processor.user_id = user_id
         
         start_time = datetime.utcnow()
         
