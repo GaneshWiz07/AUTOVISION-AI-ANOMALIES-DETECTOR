@@ -51,14 +51,42 @@ class SupabaseClient:
     async def create_user_profile(self, user_id: str, email: str, full_name: Optional[str] = None) -> Dict[str, Any]:
         """Create or update user profile"""
         try:
-            data = {
-                "id": user_id,
-                "email": email,
-                "full_name": full_name,
-                "updated_at": datetime.utcnow().isoformat()
-            }
+            # First, check if a profile with this email already exists
+            existing_profile = self.admin_client.table("user_profiles").select("*").eq("email", email).execute()
             
-            result = self.admin_client.table("user_profiles").upsert(data).execute()
+            if existing_profile.data:
+                existing_id = existing_profile.data[0].get("id")
+                
+                # If the existing profile has a different user_id, delete it first
+                if existing_id != user_id:
+                    logger.warning(f"Profile exists for {email} with different ID ({existing_id}). Deleting old profile.")
+                    self.admin_client.table("user_profiles").delete().eq("email", email).execute()
+                    
+                    # Now create new profile
+                    data = {
+                        "id": user_id,
+                        "email": email,
+                        "full_name": full_name,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    result = self.admin_client.table("user_profiles").insert(data).execute()
+                else:
+                    # Same user_id, just update
+                    logger.info(f"Updating existing profile for {email}")
+                    result = self.admin_client.table("user_profiles").update({
+                        "full_name": full_name,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }).eq("id", user_id).execute()
+            else:
+                # Create new profile
+                data = {
+                    "id": user_id,
+                    "email": email,
+                    "full_name": full_name,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                result = self.admin_client.table("user_profiles").insert(data).execute()
+            
             logger.info(f"User profile created/updated for {email}")
             return result.data[0] if result.data else {}
         except Exception as e:

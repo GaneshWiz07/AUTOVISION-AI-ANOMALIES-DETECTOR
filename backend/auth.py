@@ -181,23 +181,18 @@ class AuthService:
                     "verification_required": True
                 }
             
-            # Create user profile
+            # Create user profile (this now handles duplicates gracefully)
             try:
-                await supabase_client.create_user_profile(
+                profile = await supabase_client.create_user_profile(
                     user_id=user.id,
                     email=user.email,
                     full_name=signup_data.full_name
                 )
-                logger.info(f"User profile creation initiated for {user.email}")
+                logger.info(f"User profile created/updated successfully for {user.email}")
             except Exception as profile_error:
                 logger.error(f"Failed to create user profile for {user.email}: {profile_error}")
-                # Return success message since account was created - user can still log in
-                return {
-                    "message": "Account created successfully! Please sign in to continue.",
-                    "email": user.email,
-                    "verification_required": False,
-                    "profile_setup_pending": True
-                }
+                # Don't fail signup - profile might be created on login
+                logger.warning(f"Continuing with signup despite profile creation failure")
             
             # Verify the profile was created successfully by querying directly
             admin_client = supabase_client.get_admin_client()
@@ -296,15 +291,33 @@ class AuthService:
             
             if not profile_check.data:
                 logger.warning(f"User {user.email} ({user.id}) not found in user profiles during login")
-                # Sign out the user since they shouldn't be allowed to login
+                
+                # Try to create the missing profile (handles orphaned auth users)
                 try:
-                    self.client.auth.sign_out()
-                except:
-                    pass
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Account not verified or does not exist in our system. Please contact support if you believe this is an error."
-                )
+                    logger.info(f"Attempting to create missing profile for {user.email}")
+                    await supabase_client.create_user_profile(
+                        user_id=user.id,
+                        email=user.email,
+                        full_name=user.user_metadata.get("full_name") if user.user_metadata else None
+                    )
+                    # Re-check if profile was created
+                    profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
+                    
+                    if not profile_check.data:
+                        raise Exception("Profile creation failed")
+                    
+                    logger.info(f"Successfully created missing profile for {user.email}")
+                except Exception as create_error:
+                    logger.error(f"Failed to create missing profile: {create_error}")
+                    # Sign out the user since they shouldn't be allowed to login
+                    try:
+                        self.client.auth.sign_out()
+                    except:
+                        pass
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Account not verified or does not exist in our system. Please contact support if you believe this is an error."
+                    )
             
             profile_data = profile_check.data[0]
             
