@@ -17,12 +17,8 @@ class SimpleRAGSystem:
     Uses basic retrieval and generation techniques to provide context for anomaly detection
     """
     
-    def __init__(self, supabase_client=None, user_id=None):
+    def __init__(self):
         """Initialize the RAG system"""
-        # Store Supabase client for database persistence
-        self.supabase_client = supabase_client
-        self.user_id = user_id
-        
         # Knowledge base (simplified for demo)
         self.knowledge_base = {
             "normal_patterns": [
@@ -51,11 +47,7 @@ class SimpleRAGSystem:
         self.retrieval_cache = {}
         self.cache_max_size = 100
         
-        # Statistics tracking
-        self.patterns_saved = 0
-        self.patterns_loaded = 0
-        
-        logger.info(f"Simple RAG system initialized (DB: {supabase_client is not None}, User: {user_id})")
+        logger.info("Simple RAG system initialized")
     
     def retrieve_context(self, features: np.ndarray, anomaly_score: float) -> Dict[str, Any]:
         """
@@ -291,7 +283,7 @@ class SimpleRAGSystem:
     
     def add_pattern(self, pattern_type: str, description: str, metadata: Optional[Dict[str, Any]] = None):
         """
-        Add a new pattern to the knowledge base and persist to Supabase
+        Add a new pattern to the knowledge base
         
         Args:
             pattern_type: Type of pattern (e.g., anomaly type)
@@ -299,6 +291,8 @@ class SimpleRAGSystem:
             metadata: Additional metadata about the pattern
         """
         try:
+            # For this simple implementation, we just log the pattern
+            # In a production system, this would add to a vector database
             logger.debug(f"Adding pattern to RAG system: {pattern_type} - {description}")
             
             # Add to our simple knowledge base
@@ -313,8 +307,8 @@ class SimpleRAGSystem:
             if len(self.knowledge_base[pattern_type]) > 20:
                 self.knowledge_base[pattern_type] = self.knowledge_base[pattern_type][-20:]
                 
-            # Create a simple embedding (in production, use proper embeddings like sentence-transformers)
-            embedding = self._create_embedding(description)
+            # Create a simple embedding (in production, use proper embeddings)
+            embedding = [hash(description) % 1000 / 1000.0 for _ in range(5)]
             
             # Cache the pattern for quick retrieval
             cache_key = f"{pattern_type}_{hash(description)}"
@@ -331,57 +325,9 @@ class SimpleRAGSystem:
                 # Remove oldest entries
                 oldest_key = next(iter(self.retrieval_cache))
                 del self.retrieval_cache[oldest_key]
-            
-            # **PERSIST TO SUPABASE DATABASE**
-            if self.supabase_client and self.user_id:
-                try:
-                    import asyncio
-                    # Run async function in sync context
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # If event loop is running, schedule the coroutine
-                        asyncio.create_task(self._save_pattern_to_db(pattern_type, description, embedding, metadata))
-                    else:
-                        # If no event loop, run it synchronously
-                        loop.run_until_complete(self._save_pattern_to_db(pattern_type, description, embedding, metadata))
-                    self.patterns_saved += 1
-                    logger.info(f"Pattern persisted to database: {pattern_type} (total: {self.patterns_saved})")
-                except Exception as db_error:
-                    logger.error(f"Failed to persist pattern to database: {db_error}")
-            else:
-                logger.warning("Supabase client or user_id not set, pattern not persisted to database")
                 
         except Exception as e:
             logger.error(f"Error adding pattern to RAG system: {e}")
-    
-    def _create_embedding(self, text: str, dim: int = 128) -> List[float]:
-        """Create a simple embedding vector from text"""
-        # Simple hash-based embedding (in production, use sentence-transformers or OpenAI embeddings)
-        import hashlib
-        hash_obj = hashlib.sha256(text.encode())
-        hash_bytes = hash_obj.digest()
-        
-        # Convert hash bytes to float array
-        embedding = []
-        for i in range(dim):
-            byte_val = hash_bytes[i % len(hash_bytes)]
-            embedding.append(byte_val / 255.0)  # Normalize to 0-1
-        
-        return embedding
-    
-    async def _save_pattern_to_db(self, pattern_type: str, description: str, 
-                                   embedding: List[float], metadata: Optional[Dict[str, Any]]):
-        """Save pattern to Supabase database"""
-        try:
-            await self.supabase_client.save_historical_pattern(
-                user_id=self.user_id,
-                pattern_type=pattern_type,
-                embedding=embedding,
-                description=description,
-                metadata=metadata
-            )
-        except Exception as e:
-            logger.error(f"Error saving pattern to database: {e}")
     
     def get_relevant_context(self, description: str, anomaly_type: str) -> Dict[str, Any]:
         """
@@ -421,6 +367,6 @@ class SimpleRAGSystem:
         return context
 
 
-def create_rag_system(supabase_client=None, user_id=None):
+def create_rag_system():
     """Factory function to create and initialize the RAG system"""
-    return SimpleRAGSystem(supabase_client=supabase_client, user_id=user_id)
+    return SimpleRAGSystem()
