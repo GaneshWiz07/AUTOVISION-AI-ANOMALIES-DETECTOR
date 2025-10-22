@@ -520,7 +520,7 @@ class VideoProcessor:
             events = []
             try:
                 # Query events table for this video
-                response = supabase_client.get_client() \
+                response = supabase_client.get_admin_client() \
                     .table("events") \
                     .select("*") \
                     .eq("video_id", video_id) \

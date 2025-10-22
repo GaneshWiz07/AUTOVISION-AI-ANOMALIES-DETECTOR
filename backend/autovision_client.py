@@ -116,7 +116,7 @@ class SupabaseClient:
     def get_user_videos(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         """Get user's videos"""
         try:
-            result = (self.client.table("videos")
+            result = (self.admin_client.table("videos")
                      .select("*")
                      .eq("user_id", user_id)
                      .order("created_at", desc=True)
@@ -130,7 +130,7 @@ class SupabaseClient:
     def get_video(self, video_id: str) -> Optional[Dict[str, Any]]:
         """Get video by ID"""
         try:
-            result = self.client.table("videos").select("*").eq("id", video_id).execute()
+            result = self.admin_client.table("videos").select("*").eq("id", video_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Error getting video: {e}")
@@ -156,7 +156,7 @@ class SupabaseClient:
                 "is_alert": is_alert
             }
             
-            result = self.client.table("events").insert(data).execute()
+            result = self.admin_client.table("events").insert(data).execute()
             logger.info(f"Event created: {event_type} at {timestamp_seconds}s")
             return result.data[0] if result.data else {}
         except Exception as e:
@@ -166,7 +166,7 @@ class SupabaseClient:
     def get_video_events(self, video_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get events for a video"""
         try:
-            result = (self.client.table("events")
+            result = (self.admin_client.table("events")
                      .select("*")
                      .eq("video_id", video_id)
                      .order("timestamp_seconds", desc=False)
@@ -180,7 +180,7 @@ class SupabaseClient:
     def get_user_events(self, user_id: str, limit: int = 100) -> List[Dict[str, Any]]:
         """Get user's recent events"""
         try:
-            result = (self.client.table("events")
+            result = (self.admin_client.table("events")
                      .select("*, videos(filename, original_name)")
                      .eq("user_id", user_id)
                      .order("created_at", desc=True)
