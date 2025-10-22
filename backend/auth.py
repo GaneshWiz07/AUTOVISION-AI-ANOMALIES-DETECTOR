@@ -76,11 +76,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         # Use admin client to check user profile existence
         admin_client = supabase_client.get_admin_client()
         
-        # Check if user exists in user_profiles and is verified
-        profile_check = admin_client.rpc('get_verified_user_profile', {'user_uuid': user.id}).execute()
+        # Check if user exists in user_profiles
+        profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
         
         if not profile_check.data:
-            logger.warning(f"User {user.email} ({user.id}) not found in verified user profiles")
+            logger.warning(f"User {user.email} ({user.id}) not found in user profiles")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User account not found or not verified",
@@ -174,21 +174,31 @@ class AuthService:
                     "profile_setup_pending": True
                 }
             
-            # Verify the profile was created successfully by checking with the RPC function
+            # Verify the profile was created successfully by querying directly
             admin_client = supabase_client.get_admin_client()
-            profile_check = admin_client.rpc('get_verified_user_profile', {'user_uuid': user.id}).execute()
-            
-            if not profile_check.data:
-                logger.error(f"Failed to create verified user profile for {user.email} ({user.id})")
-                # Return success message since account was created - user can still log in
+            try:
+                profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
+                
+                if not profile_check.data:
+                    logger.error(f"Failed to verify user profile for {user.email} ({user.id})")
+                    # Return success message since account was created - user can still log in
+                    return {
+                        "message": "Account created successfully! Please sign in to continue.",
+                        "email": user.email,
+                        "verification_required": False,
+                        "profile_setup_pending": True
+                    }
+                
+                profile_data = profile_check.data[0]
+            except Exception as profile_verify_error:
+                logger.error(f"Error verifying profile for {user.email}: {profile_verify_error}")
+                # Return success message since account was created
                 return {
                     "message": "Account created successfully! Please sign in to continue.",
                     "email": user.email,
                     "verification_required": False,
                     "profile_setup_pending": True
                 }
-            
-            profile_data = profile_check.data[0]
             
             return AuthResponse(
                 access_token=session.access_token,
@@ -256,11 +266,11 @@ class AuthService:
             # Use admin client to check user profile existence - same as get_current_user
             admin_client = supabase_client.get_admin_client()
             
-            # Check if user exists in user_profiles and is verified
-            profile_check = admin_client.rpc('get_verified_user_profile', {'user_uuid': user.id}).execute()
+            # Check if user exists in user_profiles
+            profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
             
             if not profile_check.data:
-                logger.warning(f"User {user.email} ({user.id}) not found in verified user profiles during login")
+                logger.warning(f"User {user.email} ({user.id}) not found in user profiles during login")
                 # Sign out the user since they shouldn't be allowed to login
                 try:
                     self.client.auth.sign_out()
@@ -323,11 +333,11 @@ class AuthService:
             # Use admin client to check user profile existence
             admin_client = supabase_client.get_admin_client()
             
-            # Check if user exists in user_profiles and is verified
-            profile_check = admin_client.rpc('get_verified_user_profile', {'user_uuid': user.id}).execute()
+            # Check if user exists in user_profiles
+            profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
             
             if not profile_check.data:
-                logger.warning(f"User {user.email} ({user.id}) not found in verified user profiles during token refresh")
+                logger.warning(f"User {user.email} ({user.id}) not found in user profiles during token refresh")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User account not found or not verified"

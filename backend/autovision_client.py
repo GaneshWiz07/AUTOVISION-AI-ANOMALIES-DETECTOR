@@ -58,7 +58,7 @@ class SupabaseClient:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            result = self.client.table("user_profiles").upsert(data).execute()
+            result = self.admin_client.table("user_profiles").upsert(data).execute()
             logger.info(f"User profile created/updated for {email}")
             return result.data[0] if result.data else {}
         except Exception as e:
@@ -68,7 +68,7 @@ class SupabaseClient:
     def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get user profile by ID"""
         try:
-            result = self.client.table("user_profiles").select("*").eq("id", user_id).execute()
+            result = self.admin_client.table("user_profiles").select("*").eq("id", user_id).execute()
             return result.data[0] if result.data else None
         except Exception as e:
             logger.error(f"Error getting user profile: {e}")
