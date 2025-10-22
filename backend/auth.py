@@ -128,15 +128,40 @@ class AuthService:
     async def signup(self, signup_data: SignupRequest) -> Union[AuthResponse, Dict[str, Any]]:
         """Register a new user"""
         try:
-            # Sign up user with Supabase
-            auth_response = self.client.auth.sign_up({
-                "email": signup_data.email,
-                "password": signup_data.password,
-                "options": {
-                    "data": {
-                        "full_name": signup_data.full_name
-                    }
-                }            })
+            logger.info(f"Attempting to sign up user: {signup_data.email}")
+            
+            # Sign up user with Supabase - use minimal options to avoid trigger issues
+            try:
+                auth_response = self.client.auth.sign_up({
+                    "email": signup_data.email,
+                    "password": signup_data.password
+                })
+            except Exception as signup_error:
+                logger.error(f"Supabase sign_up error: {signup_error}")
+                logger.error(f"Error type: {type(signup_error).__name__}")
+                
+                # Check if error is due to existing user
+                error_msg = str(signup_error).lower()
+                if "already" in error_msg or "exists" in error_msg or "registered" in error_msg:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="An account with this email already exists. Please sign in instead."
+                    )
+                
+                # For database errors, provide a helpful message
+                if "database" in error_msg:
+                    logger.error("=" * 80)
+                    logger.error("SUPABASE CONFIGURATION ISSUE DETECTED")
+                    logger.error("There is likely a database trigger on auth.users that is failing.")
+                    logger.error("Please check SUPABASE_SETUP_REQUIRED.md for instructions.")
+                    logger.error("=" * 80)
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="Account creation is temporarily unavailable due to server configuration. Please contact support."
+                    )
+                
+                # Re-raise the original error for other cases
+                raise
             
             if not auth_response.user:
                 raise HTTPException(

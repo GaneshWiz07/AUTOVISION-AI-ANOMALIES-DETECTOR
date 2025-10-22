@@ -49,8 +49,12 @@ const SignUp = () => {
 
       let errorMessage = "Sign up failed";
 
+      // Handle 503 errors - service unavailable
+      if (error.response?.status === 503) {
+        errorMessage = error.response?.data?.detail || error.response?.data?.error || "Service temporarily unavailable. Please try again later.";
+      }
       // Handle 500 errors - account might have been created
-      if (error.response?.status === 500) {
+      else if (error.response?.status === 500) {
         const detail = error.response?.data?.detail || "";
         if (detail.includes("Account created") || detail.includes("profile")) {
           // Account was created successfully, show success message
