@@ -756,14 +756,12 @@ def create_api_router() -> APIRouter:
     async def get_user_settings(current_user: AuthUser = Depends(get_current_user)):
         """Get user settings"""
         try:
-            # Get settings from Supabase
-            result = supabase_client.get_client().rpc(
-                'get_user_settings', 
-                {'p_user_id': current_user.id}
-            ).execute()
+            # Get settings from Supabase using admin client
+            admin_client = supabase_client.get_admin_client()
+            result = admin_client.table("user_settings").select("*").eq("user_id", current_user.id).execute()
             
-            if result.data:
-                settings_data = result.data
+            if result.data and len(result.data) > 0:
+                settings_data = result.data[0]
                 return UserSettings(
                     anomaly_threshold=settings_data.get('anomaly_threshold', 0.5),
                     frame_sampling_rate=settings_data.get('frame_sampling_rate', 10),
@@ -815,16 +813,24 @@ def create_api_router() -> APIRouter:
                     )
                 update_data["video_retention_days"] = settings.video_retention_days
             
-            # Update settings in Supabase
+            # Update settings in Supabase using admin client to bypass RLS
+            admin_client = supabase_client.get_admin_client()
+            
+            logger.info(f"Updating settings for user {current_user.id}: {update_data}")
+            
             # First try to update existing record
-            result = supabase_client.get_client().table("user_settings").update(
+            result = admin_client.table("user_settings").update(
                 {k: v for k, v in update_data.items() if k != "user_id"}
             ).eq("user_id", current_user.id).execute()
             
             # If no rows were updated, insert a new record
             if not result.data:
-                result = supabase_client.get_client().table("user_settings").insert(                    update_data
+                logger.info(f"No existing settings found, inserting new record for user {current_user.id}")
+                result = admin_client.table("user_settings").insert(
+                    update_data
                 ).execute()
+            else:
+                logger.info(f"Updated existing settings for user {current_user.id}")
             
             if result.data:
                 settings_data = result.data[0]
