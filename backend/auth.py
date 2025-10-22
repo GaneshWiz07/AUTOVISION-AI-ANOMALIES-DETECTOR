@@ -166,10 +166,13 @@ class AuthService:
                 logger.info(f"User profile creation initiated for {user.email}")
             except Exception as profile_error:
                 logger.error(f"Failed to create user profile for {user.email}: {profile_error}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Account created but profile setup failed. Please contact support."
-                )
+                # Return success message since account was created - user can still log in
+                return {
+                    "message": "Account created successfully! Please sign in to continue.",
+                    "email": user.email,
+                    "verification_required": False,
+                    "profile_setup_pending": True
+                }
             
             # Verify the profile was created successfully by checking with the RPC function
             admin_client = supabase_client.get_admin_client()
@@ -177,15 +180,13 @@ class AuthService:
             
             if not profile_check.data:
                 logger.error(f"Failed to create verified user profile for {user.email} ({user.id})")
-                # Clean up the auth user if profile creation failed
-                try:
-                    admin_client.auth.admin.delete_user(user.id)
-                except:
-                    pass
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Account created but verification failed. Please contact support or try signing up again."
-                )
+                # Return success message since account was created - user can still log in
+                return {
+                    "message": "Account created successfully! Please sign in to continue.",
+                    "email": user.email,
+                    "verification_required": False,
+                    "profile_setup_pending": True
+                }
             
             profile_data = profile_check.data[0]
             

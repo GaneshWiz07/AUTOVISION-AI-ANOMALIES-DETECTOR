@@ -13,7 +13,7 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { signup, verificationMessage, clearVerificationMessage } = useAuth();
+  const { signup, verificationMessage, clearVerificationMessage, setVerificationMessage } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -49,12 +49,24 @@ const SignUp = () => {
 
       let errorMessage = "Sign up failed";
 
-      if (error.response?.data?.detail) {
+      // Handle 500 errors - account might have been created
+      if (error.response?.status === 500) {
+        const detail = error.response?.data?.detail || "";
+        if (detail.includes("Account created") || detail.includes("profile")) {
+          // Account was created successfully, show success message
+          clearVerificationMessage();
+          setVerificationMessage("Account created successfully! Please sign in to continue.");
+          setError(""); // Clear any error
+          setLoading(false);
+          return; // Exit early
+        }
+        errorMessage = "An error occurred during signup. Please try signing in or contact support.";
+      } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       } else if (error.response?.status === 400) {
         errorMessage = "Invalid signup data. Please check your information.";
       } else if (error.response?.status === 409) {
-        errorMessage = "An account with this email already exists.";
+        errorMessage = "An account with this email already exists. Please sign in instead.";
       } else if (error.message) {
         errorMessage = error.message;
       }

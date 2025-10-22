@@ -22,7 +22,28 @@ const Login = () => {
       await login(email, password);
       navigate("/");
     } catch (error) {
-      setError(error.response?.data?.detail || "Login failed");
+      console.error("Login error:", error);
+      
+      let errorMessage = "Login failed. Please try again.";
+      
+      // Handle different error cases
+      if (error.response?.status === 401) {
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      } else if (error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        // Make the backend error message more user-friendly if needed
+        if (detail.includes("Invalid") || detail.includes("credentials")) {
+          errorMessage = "Invalid email or password. Please check your credentials and try again.";
+        } else if (detail.includes("verification") || detail.includes("verify")) {
+          errorMessage = "Please verify your email before signing in. Check your inbox for the verification link.";
+        } else {
+          errorMessage = detail;
+        }
+      } else if (error.response?.status === 500) {
+        errorMessage = "Server error. Please try again later or contact support.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

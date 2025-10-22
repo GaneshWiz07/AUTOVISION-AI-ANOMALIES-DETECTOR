@@ -145,6 +145,14 @@ export const AuthProvider = ({ children }) => {
         return { verificationRequired: true };
       }
 
+      // Check if profile setup is pending (account created but profile failed)
+      if (response.profile_setup_pending === true) {
+        setVerificationMessage(
+          response.message || "Account created successfully! Please sign in to continue."
+        );
+        return { verificationRequired: true };
+      }
+
       // If no verification required, log the user in
       if (response.access_token) {
         localStorage.setItem("access_token", response.access_token);
@@ -192,6 +200,7 @@ export const AuthProvider = ({ children }) => {
     signup,
     logout,
     clearVerificationMessage,
+    setVerificationMessage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
