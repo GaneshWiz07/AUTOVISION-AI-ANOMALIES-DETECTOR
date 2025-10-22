@@ -34,27 +34,33 @@ const Dashboard = () => {
         const processingVideos = newVideos.filter((v) => v.upload_status === "processing");
         
         // Check if video count changed (deletion or new upload)
-        const videoCountChanged = newVideos.length !== videos.length;
-        
-        // Check if any video IDs are different (deletion/addition)
-        const currentVideoIds = new Set(videos.map(v => v.id));
-        const newVideoIds = new Set(newVideos.map(v => v.id));
-        const videosChanged = 
-          currentVideoIds.size !== newVideoIds.size ||
-          [...currentVideoIds].some(id => !newVideoIds.has(id)) ||
-          [...newVideoIds].some(id => !currentVideoIds.has(id));
+        // Use functional update to get current videos without adding to dependencies
+        setVideos((currentVideos) => {
+          const videoCountChanged = newVideos.length !== currentVideos.length;
+          
+          // Check if any video IDs are different (deletion/addition)
+          const currentVideoIds = new Set(currentVideos.map(v => v.id));
+          const newVideoIds = new Set(newVideos.map(v => v.id));
+          const videosChanged = 
+            currentVideoIds.size !== newVideoIds.size ||
+            [...currentVideoIds].some(id => !newVideoIds.has(id)) ||
+            [...newVideoIds].some(id => !currentVideoIds.has(id));
 
-        if (processingVideos.length > 0 || videoCountChanged || videosChanged) {
-          // Refresh data if there are changes
-          loadDashboardData();
-        }
+          if (processingVideos.length > 0 || videoCountChanged || videosChanged) {
+            // Refresh data if there are changes
+            loadDashboardData();
+          }
+          
+          // Return current videos unchanged (we'll update in loadDashboardData)
+          return currentVideos;
+        });
       } catch (error) {
         // Ignore polling errors
       }
     }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, [videos]); // Add videos as dependency to track changes
+  }, []); // Empty dependency array - only run once on mount
 
   const loadDashboardData = async () => {
     try {
