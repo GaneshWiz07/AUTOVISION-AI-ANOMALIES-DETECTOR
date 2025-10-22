@@ -206,16 +206,28 @@ class AuthService:
             raise
         except Exception as e:
             logger.error(f"Signup error: {e}")
+            logger.error(f"Signup error type: {type(e).__name__}")
+            logger.error(f"Signup error details: {str(e)}")
+            
             # Provide specific error messages based on the error
             error_message = str(e).lower()
-            if "email" in error_message and "already" in error_message:
+            
+            # Check for Supabase-specific errors
+            if hasattr(e, 'message'):
+                error_message = str(e.message).lower()
+                logger.error(f"Supabase error message: {e.message}")
+            
+            if "email" in error_message and ("already" in error_message or "exists" in error_message or "registered" in error_message):
                 detail = "An account with this email already exists. Please sign in instead."
-            elif "password" in error_message:
+            elif "password" in error_message and ("weak" in error_message or "short" in error_message or "length" in error_message):
                 detail = "Password does not meet requirements. Please use at least 6 characters."
             elif "email" in error_message and "invalid" in error_message:
                 detail = "Please provide a valid email address."
+            elif "user" in error_message and ("already" in error_message or "exists" in error_message):
+                detail = "An account with this email already exists. Please sign in instead."
             else:
-                detail = "Registration failed. Please check your information and try again."
+                # Return the actual error for debugging
+                detail = f"Registration failed: {str(e)}"
             
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

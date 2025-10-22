@@ -62,7 +62,11 @@ const SignUp = () => {
         }
         errorMessage = "An error occurred during signup. Please try signing in or contact support.";
       } else if (error.response?.data?.detail) {
+        // Use the backend error message directly
         errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.error) {
+        // Alternative error field
+        errorMessage = error.response.data.error;
       } else if (error.response?.status === 400) {
         errorMessage = "Invalid signup data. Please check your information.";
       } else if (error.response?.status === 409) {
