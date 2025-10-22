@@ -479,6 +479,15 @@ def create_api_router() -> APIRouter:
                             detail="Access denied"
                         )
                     
+                    # Delete associated events first (to avoid foreign key constraint issues)
+                    try:
+                        admin_client = supabase_client.get_admin_client()
+                        events_result = admin_client.table("events").delete().eq("video_id", video_id).execute()
+                        deleted_events = len(events_result.data) if events_result.data else 0
+                        logger.info(f"Deleted {deleted_events} events associated with video {video_id}")
+                    except Exception as e:
+                        logger.warning(f"Could not delete events for video {video_id}: {e}")
+                    
                     # Delete from storage
                     try:
                         supabase_client.delete_file("videos", video["file_path"])
@@ -486,7 +495,8 @@ def create_api_router() -> APIRouter:
                         logger.warning(f"Could not delete file from storage: {e}")
                     
                     # Delete from database
-                    supabase_client.get_client().table("videos").delete().eq("id", video_id).execute()
+                    admin_client = supabase_client.get_admin_client()
+                    admin_client.table("videos").delete().eq("id", video_id).execute()
                     video_found = True
                     logger.info(f"Deleted video {video_id} from Supabase")
                 else:

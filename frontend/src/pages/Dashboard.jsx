@@ -24,16 +24,28 @@ const Dashboard = () => {
   useEffect(() => {
     loadDashboardData();
 
-    // Set up polling for videos that are processing (like Analytics does)
+    // Set up polling to detect changes (processing videos, deletions, new uploads)
     const pollInterval = setInterval(async () => {
       try {
         const videosData = await videoAPI.getVideos();
-        const processingVideos =
-          videosData.videos?.filter((v) => v.upload_status === "processing") ||
-          [];
+        const newVideos = videosData.videos || [];
+        
+        // Check if there are processing videos
+        const processingVideos = newVideos.filter((v) => v.upload_status === "processing");
+        
+        // Check if video count changed (deletion or new upload)
+        const videoCountChanged = newVideos.length !== videos.length;
+        
+        // Check if any video IDs are different (deletion/addition)
+        const currentVideoIds = new Set(videos.map(v => v.id));
+        const newVideoIds = new Set(newVideos.map(v => v.id));
+        const videosChanged = 
+          currentVideoIds.size !== newVideoIds.size ||
+          [...currentVideoIds].some(id => !newVideoIds.has(id)) ||
+          [...newVideoIds].some(id => !currentVideoIds.has(id));
 
-        if (processingVideos.length > 0) {
-          // Refresh data if there are processing videos
+        if (processingVideos.length > 0 || videoCountChanged || videosChanged) {
+          // Refresh data if there are changes
           loadDashboardData();
         }
       } catch (error) {
@@ -42,7 +54,7 @@ const Dashboard = () => {
     }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, []);
+  }, [videos]); // Add videos as dependency to track changes
 
   const loadDashboardData = async () => {
     try {
