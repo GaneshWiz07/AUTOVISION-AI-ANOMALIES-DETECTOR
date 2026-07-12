@@ -1,4 +1,7 @@
 -- ============================================================================
+-- DEPRECATED: superseded by supabase/schema.sql — do not run this file.
+-- Kept for historical reference only.
+-- ============================================================================
 -- AUTOVISION COMPLETE PRODUCTION DATABASE SETUP
 -- ============================================================================
 -- This script sets up the complete AutoVision database schema for production

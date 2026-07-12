@@ -7,14 +7,23 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional, Union, Dict, Any
-import jwt
 import os
 from loguru import logger
 
-from supabase import create_client
-
 # Import our custom SupabaseClient
 from backend.autovision_client import SupabaseClient, supabase_client
+
+
+def _is_system_admin_email(email: str) -> bool:
+    """
+    Determine whether an email should be provisioned as a system/admin user
+    (user_profiles.is_system_user). Configured via a comma-separated
+    SYSTEM_ADMIN_EMAILS env var so it's ops-controlled, not hardcoded to any
+    specific account.
+    """
+    admin_emails = os.getenv("SYSTEM_ADMIN_EMAILS", "")
+    allowed = {e.strip().lower() for e in admin_emails.split(",") if e.strip()}
+    return email.lower() in allowed
 
 
 class AuthUser(BaseModel):
@@ -23,6 +32,7 @@ class AuthUser(BaseModel):
     email: str
     full_name: Optional[str] = None
     avatar_url: Optional[str] = None
+    is_system_user: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -93,7 +103,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             id=user.id,
             email=profile_data.get("email", user.email),
             full_name=profile_data.get("full_name"),
-            avatar_url=profile_data.get("avatar_url")
+            avatar_url=profile_data.get("avatar_url"),
+            is_system_user=profile_data.get("is_system_user", False)
         )
         
     except HTTPException:
@@ -186,7 +197,8 @@ class AuthService:
                 profile = await supabase_client.create_user_profile(
                     user_id=user.id,
                     email=user.email,
-                    full_name=signup_data.full_name
+                    full_name=signup_data.full_name,
+                    is_system_user=_is_system_admin_email(user.email)
                 )
                 logger.info(f"User profile created/updated successfully for {user.email}")
             except Exception as profile_error:
@@ -227,7 +239,8 @@ class AuthService:
                     id=user.id,
                     email=profile_data.get("email", user.email),
                     full_name=profile_data.get("full_name"),
-                    avatar_url=profile_data.get("avatar_url")
+                    avatar_url=profile_data.get("avatar_url"),
+                    is_system_user=profile_data.get("is_system_user", False)
                 ),
                 expires_in=session.expires_in
             )
@@ -298,7 +311,8 @@ class AuthService:
                     await supabase_client.create_user_profile(
                         user_id=user.id,
                         email=user.email,
-                        full_name=user.user_metadata.get("full_name") if user.user_metadata else None
+                        full_name=user.user_metadata.get("full_name") if user.user_metadata else None,
+                        is_system_user=_is_system_admin_email(user.email)
                     )
                     # Re-check if profile was created
                     profile_check = admin_client.table("user_profiles").select("*").eq("id", user.id).execute()
@@ -328,7 +342,8 @@ class AuthService:
                     id=user.id,
                     email=profile_data.get("email", user.email),
                     full_name=profile_data.get("full_name"),
-                    avatar_url=profile_data.get("avatar_url")
+                    avatar_url=profile_data.get("avatar_url"),
+                    is_system_user=profile_data.get("is_system_user", False)
                 ),
                 expires_in=session.expires_in
             )
@@ -390,7 +405,8 @@ class AuthService:
                     id=user.id,
                     email=profile_data.get("email", user.email),
                     full_name=profile_data.get("full_name"),
-                    avatar_url=profile_data.get("avatar_url")
+                    avatar_url=profile_data.get("avatar_url"),
+                    is_system_user=profile_data.get("is_system_user", False)
                 ),
                 expires_in=session.expires_in
             )
@@ -405,9 +421,13 @@ class AuthService:
             )
     
     async def logout(self, access_token: str) -> bool:
-        """Logout user and invalidate token"""
+        """Logout user and invalidate their specific access token"""
         try:
-            self.client.auth.sign_out()
+            if access_token:
+                # Use the admin API to invalidate this specific token server-side,
+                # rather than sign_out() on the shared anon client (which has no
+                # per-request session and would affect no one's actual token).
+                self.supabase_client.get_admin_client().auth.admin.sign_out(access_token)
             return True
         except Exception as e:
             logger.error(f"Logout error: {e}")
@@ -425,28 +445,33 @@ class AuthService:
                 data["avatar_url"] = avatar_url
             
             if data:
-                result = (supabase_client.get_client()
+                # Server-side update - use the admin client so it isn't
+                # blocked by the "auth.uid() = id" RLS policy (this code
+                # has no user JWT context, only the anon client would).
+                result = (supabase_client.get_admin_client()
                          .table("user_profiles")
                          .update(data)
                          .eq("id", user_id)
                          .execute())
-                
+
                 if result.data:
                     profile = result.data[0]
                     return AuthUser(
                         id=profile["id"],
                         email=profile["email"],
                         full_name=profile.get("full_name"),
-                        avatar_url=profile.get("avatar_url")
+                        avatar_url=profile.get("avatar_url"),
+                        is_system_user=profile.get("is_system_user", False)
                     )
-            
+
             # Return current profile if no updates
             profile = supabase_client.get_user_profile(user_id)
             return AuthUser(
                 id=user_id,
                 email=profile["email"],
                 full_name=profile.get("full_name"),
-                avatar_url=profile.get("avatar_url")
+                avatar_url=profile.get("avatar_url"),
+                is_system_user=profile.get("is_system_user", False)
             )
             
         except Exception as e:

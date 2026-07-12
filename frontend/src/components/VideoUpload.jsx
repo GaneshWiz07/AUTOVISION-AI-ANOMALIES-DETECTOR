@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { videoAPI } from "./api-utils.js";
+import { videoAPI } from "../lib/api";
 import { CloudArrowUpIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
 const VideoUpload = ({ onUploadSuccess, onUploadError }) => {
@@ -30,20 +30,13 @@ const VideoUpload = ({ onUploadSuccess, onUploadError }) => {
       setUploadProgress(0);
 
       try {
-        // Simulate upload progress
-        const progressInterval = setInterval(() => {
-          setUploadProgress((prev) => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
-        }, 200);
+        const result = await videoAPI.uploadVideo(file, (progressEvent) => {
+          if (progressEvent.total) {
+            const pct = Math.round((progressEvent.loaded / progressEvent.total) * 100);
+            setUploadProgress(pct);
+          }
+        });
 
-        const result = await videoAPI.uploadVideo(file);
-
-        clearInterval(progressInterval);
         setUploadProgress(100);
         setUploadSuccess(true);
 
@@ -106,29 +99,8 @@ const VideoUpload = ({ onUploadSuccess, onUploadError }) => {
               </p>{" "}
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
-                  className={`bg-primary-600 h-2 rounded-full transition-all duration-300 ${
-                    uploadProgress === 0
-                      ? "w-0"
-                      : uploadProgress <= 10
-                      ? "w-1/12"
-                      : uploadProgress <= 20
-                      ? "w-1/6"
-                      : uploadProgress <= 30
-                      ? "w-1/4"
-                      : uploadProgress <= 40
-                      ? "w-1/3"
-                      : uploadProgress <= 50
-                      ? "w-1/2"
-                      : uploadProgress <= 60
-                      ? "w-3/5"
-                      : uploadProgress <= 70
-                      ? "w-2/3"
-                      : uploadProgress <= 80
-                      ? "w-4/5"
-                      : uploadProgress <= 90
-                      ? "w-11/12"
-                      : "w-full"
-                  }`}
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
                 />
               </div>
               <p className="text-sm text-gray-500">{uploadProgress}%</p>

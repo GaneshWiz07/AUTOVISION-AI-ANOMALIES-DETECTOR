@@ -4,14 +4,15 @@ API routes for AutoVision backend
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 import os
 import asyncio
 from loguru import logger
 
-from backend.auth import get_current_user, AuthUser, auth_service, LoginRequest, SignupRequest
-from backend.video_processor import VideoProcessor
+from backend.auth import get_current_user, AuthUser, auth_service, LoginRequest, SignupRequest, security
 from backend.video_cleanup import video_cleanup_service
 
 # Import our custom SupabaseClient
@@ -29,6 +30,12 @@ class FeedbackRequest(BaseModel):
 class ThresholdUpdateRequest(BaseModel):
     """Threshold update request model"""
     new_threshold: float
+
+
+class EventUpdateRequest(BaseModel):
+    """Event update request model - only user-editable fields are exposed"""
+    is_false_positive: Optional[bool] = None
+    description: Optional[str] = None
 
 
 class UserSettings(BaseModel):
@@ -102,10 +109,13 @@ def create_api_router() -> APIRouter:
             )
     
     @router.post("/auth/logout")
-    async def logout(current_user: AuthUser = Depends(get_current_user)):
+    async def logout(
+        current_user: AuthUser = Depends(get_current_user),
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+    ):
         """Logout user"""
         try:
-            await auth_service.logout("")
+            await auth_service.logout(credentials.credentials)
             return {"message": "Logged out successfully"}
         except Exception as e:
             logger.error(f"Logout error: {e}")
@@ -232,11 +242,12 @@ def create_api_router() -> APIRouter:
     @router.get("/videos/{video_id}/analysis")
     async def get_video_analysis(
         video_id: str,
+        request: Request,
         current_user: AuthUser = Depends(get_current_user)
     ):
         """Get video analysis results"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             analysis = await video_processor.get_video_analysis(video_id, current_user.id)
             return analysis
             
@@ -582,15 +593,31 @@ def create_api_router() -> APIRouter:
     @router.put("/events/{event_id}")
     async def update_event(
         event_id: str,
-        data: dict,
+        data: EventUpdateRequest,
         current_user: AuthUser = Depends(get_current_user)
     ):
-        """Update an event (e.g., mark as false positive)"""
+        """Update an event (e.g., mark as false positive, edit description)"""
         try:
-            # For the simplified version, just return success
-            # In a real implementation, you would update the database
-            logger.info(f"Updating event {event_id} with data: {data}")
-            return {"message": "Event updated successfully", "event_id": event_id}
+            admin_client = supabase_client.get_admin_client()
+
+            existing = admin_client.table("events").select("id, user_id").eq("id", event_id).execute()
+            if not existing.data:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+            if existing.data[0]["user_id"] != current_user.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+            update_data = {k: v for k, v in data.dict().items() if v is not None}
+            if not update_data:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
+
+            result = admin_client.table("events").update(update_data).eq("id", event_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update event")
+
+            logger.info(f"Updated event {event_id} with {update_data}")
+            return {"message": "Event updated successfully", "event_id": event_id, "event": result.data[0]}
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error updating event: {e}")
             raise HTTPException(
@@ -602,11 +629,12 @@ def create_api_router() -> APIRouter:
     async def provide_feedback(
         event_id: str,
         feedback: FeedbackRequest,
+        request: Request,
         current_user: AuthUser = Depends(get_current_user)
     ):
         """Provide feedback on an anomaly detection"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             success = await video_processor.provide_feedback(
                 event_id=event_id,
                 user_id=current_user.id,
@@ -632,10 +660,10 @@ def create_api_router() -> APIRouter:
     
     # System monitoring routes
     @router.get("/system/status")
-    async def get_system_status(current_user: AuthUser = Depends(get_current_user)):
+    async def get_system_status(request: Request, current_user: AuthUser = Depends(get_current_user)):
         """Get system status and metrics"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             system_status = video_processor.get_system_status()
             return system_status
         except Exception as e:
@@ -644,20 +672,20 @@ def create_api_router() -> APIRouter:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to retrieve system status"
             )
-    
+
     @router.get("/system/metrics")
-    async def get_system_metrics(current_user: AuthUser = Depends(get_current_user)):
+    async def get_system_metrics(request: Request, current_user: AuthUser = Depends(get_current_user)):
         """Get detailed system metrics"""
         try:
             # Get video processor statistics
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             processor_status = video_processor.get_system_status()
-            
+
             return {
                 "video_processor": processor_status,
-                "timestamp": "2024-12-19T00:00:00Z"
+                "timestamp": datetime.utcnow().isoformat() + "Z"
             }
-            
+
         except Exception as e:
             logger.error(f"Error getting system metrics: {e}")
             raise HTTPException(
@@ -693,10 +721,10 @@ def create_api_router() -> APIRouter:
     
     # RL Controller routes
     @router.get("/rl/status")
-    async def get_rl_status(current_user: AuthUser = Depends(get_current_user)):
+    async def get_rl_status(request: Request, current_user: AuthUser = Depends(get_current_user)):
         """Get RL controller status"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             rl_summary = video_processor.rl_controller.get_training_summary()
             return rl_summary
         except Exception as e:
@@ -705,13 +733,18 @@ def create_api_router() -> APIRouter:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to retrieve RL status"
             )
-    
+
     @router.post("/rl/reset")
-    async def reset_rl_training(current_user: AuthUser = Depends(get_current_user)):
-        """Reset RL training (admin only)"""
+    async def reset_rl_training(request: Request, current_user: AuthUser = Depends(get_current_user)):
+        """Reset RL training (system/admin users only)"""
+        if not current_user.is_system_user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only system administrators can reset RL training"
+            )
         try:
-            video_processor = VideoProcessor()
-            video_processor.rl_controller.reset_training()
+            video_processor = request.app.state.video_processor
+            video_processor.rl_controller.reset()
             return {"message": "RL training reset successfully"}
         except Exception as e:
             logger.error(f"Error resetting RL training: {e}")
@@ -719,16 +752,17 @@ def create_api_router() -> APIRouter:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to reset RL training"
             )
-    
+
     # RAG System routes
     @router.get("/rag/patterns")
     async def get_rag_patterns(
+        request: Request,
         pattern_type: Optional[str] = None,
         current_user: AuthUser = Depends(get_current_user)
     ):
         """Get RAG system patterns summary"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             summary = video_processor.rag_system.generate_pattern_summary(pattern_type)
             return summary
         except Exception as e:
@@ -737,19 +771,20 @@ def create_api_router() -> APIRouter:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to retrieve RAG patterns"
             )
-    
+
     @router.get("/rag/stats")
-    async def get_rag_stats(current_user: AuthUser = Depends(get_current_user)):
+    async def get_rag_stats(request: Request, current_user: AuthUser = Depends(get_current_user)):
         """Get RAG system statistics"""
         try:
-            video_processor = VideoProcessor()
+            video_processor = request.app.state.video_processor
             stats = video_processor.rag_system.get_pattern_stats()
             return stats
         except Exception as e:
             logger.error(f"Error getting RAG stats: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve RAG statistics"            )
+                detail="Failed to retrieve RAG statistics"
+            )
     
     # User Settings routes
     @router.get("/settings", response_model=UserSettings)
@@ -855,112 +890,15 @@ def create_api_router() -> APIRouter:
                 detail="Failed to update settings"
             )
 
-    # Video cleanup routes
-    @router.post("/videos/{video_id}/cleanup")
-    async def cleanup_video(
-        video_id: str,
-        request: Request,
-        current_user: AuthUser = Depends(get_current_user)
-    ):
-        """Trigger video cleanup"""
-        try:
-            logger.info(f"Cleaning up video {video_id} for user {current_user.id}")
-            
-            # Get video processor from app state
-            video_processor = request.app.state.video_processor
-            
-            # First, check if video exists in Supabase database
-            video_record = supabase_client.get_video(video_id)
-            
-            if video_record:
-                # Check ownership
-                if video_record.get('user_id') != current_user.id:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Access denied"
-                    )
-                
-                # Check if cleanup is needed
-                if video_record.get('cleanup_status') == 'completed':
-                    return {
-                        "status": "completed",
-                        "message": "Video cleanup already completed",
-                        "video_id": video_id
-                    }
-                
-                # Get file path and check if file exists
-                file_path = video_record.get('file_path')
-                if file_path and os.path.exists(file_path):
-                    # Update status to cleaning in database
-                    supabase_client.update_video_status(video_id, "cleaning")
-                    
-                    # Create metadata object
-                    from backend.video_processor import VideoMetadata
-                    metadata = VideoMetadata(file_path)
-                    
-                    # Add to cleanup queue
-                    await video_cleanup_service.cleanup_queue.put({
-                        "video_id": video_id,
-                        "user_id": current_user.id,
-                        "filepath": file_path,
-                        "metadata": metadata
-                    })
-                      # Start cleanup if not already running
-                    if not video_cleanup_service.is_cleaning:
-                        asyncio.create_task(video_cleanup_service._cleanup_queue())
-                    
-                    logger.info(f"Video {video_id} added to cleanup queue")
-                    return {
-                        "status": "cleaning",
-                        "message": "Video cleanup started",
-                        "video_id": video_id
-                    }
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Video file not found on disk"
-                    )
-            else:
-                # Video not found in database
-                logger.error(f"Video {video_id} not found in database")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Video not found"
-                )
-                
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error cleaning up video: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to cleanup video"
-            )
-
-    @router.get("/videos/cleanup/status")
-    async def get_cleanup_status(
-        request: Request,
-        current_user: AuthUser = Depends(get_current_user)
-    ):
-        """Get video cleanup status"""
-        try:
-            # Get all videos for the user
-            videos = supabase_client.get_user_videos(current_user.id, 100)
-            
-            # Filter videos that are still cleaning
-            cleaning_videos = [video for video in videos if video.get('cleanup_status') != 'completed']
-            
-            return {
-                "status": "cleaning",
-                "videos": cleaning_videos
-            }
-        except Exception as e:
-            logger.error(f"Error getting cleanup status: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,                detail="Failed to retrieve cleanup status"
-            )
-
     # Video retention cleanup routes
+    #
+    # Note: a previous per-video "/videos/{video_id}/cleanup" and
+    # "/videos/cleanup/status" pair of endpoints was removed here. They
+    # referenced a `videos.cleanup_status` column and a
+    # `video_cleanup_service.cleanup_queue`/`is_cleaning`/`_cleanup_queue`
+    # API that never existed in the schema or service (calling them always
+    # raised AttributeError), and the frontend never called them - it only
+    # uses the retention-based /cleanup/preview and /cleanup/run below.
     @router.get("/cleanup/preview")
     async def get_cleanup_preview(
         current_user: AuthUser = Depends(get_current_user)

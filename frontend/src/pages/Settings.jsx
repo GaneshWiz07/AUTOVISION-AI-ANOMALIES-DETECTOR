@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { settingsAPI, cleanupAPI } from "./api-utils.js";
+import { settingsAPI, cleanupAPI } from "../lib/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
   Cog6ToothIcon,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { videoAPI, eventAPI } from "./api-utils.js";
+import { videoAPI, eventAPI } from "../lib/api";
 import AnomalyChart from "../components/AnomalyChart";
 import LoadingSpinner from "../components/LoadingSpinner";
 import {
@@ -8,6 +8,8 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XCircleIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon,
 } from "@heroicons/react/24/outline";
 
 const VideoAnalytics = () => {
@@ -18,6 +20,8 @@ const VideoAnalytics = () => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [processingVideo, setProcessingVideo] = useState(null);
   const [showVideoPopup, setShowVideoPopup] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState({});
+  const [submittingFeedback, setSubmittingFeedback] = useState(null);
   useEffect(() => {
     loadData();
 
@@ -151,6 +155,23 @@ const VideoAnalytics = () => {
 
   const getVideoEvents = (videoId) => {
     return events.filter((event) => event.video_id === videoId);
+  };
+
+  const handleFeedback = async (eventId, isFalsePositive) => {
+    try {
+      setSubmittingFeedback(eventId);
+      const feedbackScore = isFalsePositive ? -1.0 : 1.0;
+      await eventAPI.provideFeedback(eventId, isFalsePositive, feedbackScore);
+      setFeedbackGiven((prev) => ({
+        ...prev,
+        [eventId]: isFalsePositive ? "false_positive" : "correct",
+      }));
+    } catch (err) {
+      console.error("Error submitting feedback:", err);
+      alert("Failed to submit feedback");
+    } finally {
+      setSubmittingFeedback(null);
+    }
   };
 
   const getStatusIcon = (status) => {
@@ -375,6 +396,48 @@ const VideoAnalytics = () => {
                             <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
                           )}
                         </div>
+
+                        {event.is_alert && (
+                          <div className="mt-3 pt-3 border-t border-red-100 flex items-center justify-between">
+                            {feedbackGiven[event.id] ? (
+                              <p className="text-xs text-gray-500 italic">
+                                {feedbackGiven[event.id] === "false_positive"
+                                  ? "Marked as false positive - thanks for the feedback"
+                                  : "Marked as correct detection - thanks for the feedback"}
+                              </p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-gray-500">
+                                  Was this detection correct?
+                                </p>
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() =>
+                                      handleFeedback(event.id, false)
+                                    }
+                                    disabled={submittingFeedback === event.id}
+                                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 disabled:opacity-50"
+                                    title="Correct detection"
+                                  >
+                                    <HandThumbUpIcon className="h-3.5 w-3.5 mr-1" />
+                                    Correct
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleFeedback(event.id, true)
+                                    }
+                                    disabled={submittingFeedback === event.id}
+                                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50"
+                                    title="False positive"
+                                  >
+                                    <HandThumbDownIcon className="h-3.5 w-3.5 mr-1" />
+                                    False Positive
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

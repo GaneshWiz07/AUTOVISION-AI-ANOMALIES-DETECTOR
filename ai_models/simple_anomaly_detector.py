@@ -1,6 +1,8 @@
 """
 Simple anomaly detector for AutoVision
-Based on basic techniques for video anomaly detection
+Legacy/demo fallback only. The active detector is MLAnomalyDetector
+(ai_models/ml_anomaly_detector.py), selected by create_anomaly_detector()
+whenever USE_PRETRAINED_MODELS is enabled (the default).
 """
 
 import numpy as np
@@ -12,10 +14,11 @@ import time
 
 class SimpleAnomalyDetector:
     """
-    Simple anomaly detector implementation for AutoVision
-    
-    Uses basic image analysis and random scores for demo purposes
-    In a real application, this would be replaced with a deep learning model
+    Legacy demo anomaly detector implementation for AutoVision
+
+    Uses random scores for demo purposes only and ignores the actual frame.
+    Kept solely as an opt-out fallback (USE_PRETRAINED_MODELS=false) for
+    environments where the ML detector's dependencies are unavailable.
     """
     
     def __init__(self):
@@ -27,16 +30,23 @@ class SimpleAnomalyDetector:
         # Model would be loaded here in a real application
         logger.info(f"Simple anomaly detector initialized with threshold {self.threshold}")
     
-    def detect_anomaly(self, frame: np.ndarray) -> Dict[str, Any]:
+    def detect_anomaly(self, frame: np.ndarray, video_id: str = None,
+                        threshold: float = None, frame_number: int = None,
+                        fps: float = None) -> Dict[str, Any]:
         """
         Detect anomalies in a video frame
-        
+
         Args:
             frame: BGR video frame
-            
+            video_id, frame_number, fps: unused here, accepted for interface
+                parity with MLAnomalyDetector
+            threshold: overrides self.threshold when provided (e.g. from the RL controller)
+
         Returns:
             Dict with detection results
         """
+        if threshold is not None:
+            self.threshold = threshold
         # In a real model, we'd process the frame here
         # For demo, use a pseudo-random score with some time-based variation
         time_factor = (int(time.time()) % 60) / 60.0  # Value between 0-1 that changes every minute
@@ -61,6 +71,14 @@ class SimpleAnomalyDetector:
             "anomaly_score": anomaly_score,
             "is_anomaly": is_anomaly,
             "anomaly_confidence": confidence,
+            "bounding_box": None,
+            "motion_score": 0.0,
+            "appearance_score": 0.0,
+            "contour_count": 0,
+            "velocity_px_per_sec": 0.0,
+            "loiter_duration_seconds": 0.0,
+            "detected_objects": [],
+            "object_counts": {},
         }
     
     def extract_features(self, frame: np.ndarray) -> np.ndarray:
@@ -71,5 +89,17 @@ class SimpleAnomalyDetector:
 
 
 def create_anomaly_detector():
-    """Factory function to create and initialize the anomaly detector"""
+    """
+    Factory function to create and initialize the anomaly detector.
+
+    Returns the real MLAnomalyDetector (MobileNetV2 appearance embedding +
+    OpenCV motion analysis) unless explicitly disabled via
+    USE_PRETRAINED_MODELS=false, in which case the legacy random-score demo
+    detector above is used instead.
+    """
+    use_pretrained = os.getenv("USE_PRETRAINED_MODELS", "true").strip().lower() in ("true", "1", "yes")
+    if use_pretrained:
+        from ai_models.ml_anomaly_detector import create_ml_anomaly_detector
+        return create_ml_anomaly_detector()
+    logger.warning("USE_PRETRAINED_MODELS disabled - using legacy random-score demo detector")
     return SimpleAnomalyDetector()

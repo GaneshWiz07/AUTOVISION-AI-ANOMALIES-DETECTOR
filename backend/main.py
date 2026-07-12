@@ -5,12 +5,13 @@ Main FastAPI application for AutoVision backend
 import os
 import sys
 from pathlib import Path
+from datetime import datetime
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -24,8 +25,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import AutoVision modules
-from supabase import create_client
-from backend.auth import get_current_user, AuthUser
 from backend.video_processor import VideoProcessor
 from backend.video_cleanup import run_scheduled_cleanup
 from backend.api_routes import create_api_router
@@ -61,8 +60,10 @@ async def lifespan(app: FastAPI):
     logger.info("AutoVision backend started successfully")
     
     yield
-      # Shutdown    logger.info("Shutting down AutoVision backend...")
-    
+
+    # Shutdown
+    logger.info("Shutting down AutoVision backend...")
+
     # Cancel cleanup task
     if hasattr(app.state, 'cleanup_task'):
         app.state.cleanup_task.cancel()
@@ -82,10 +83,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware - restricted to known frontend origins by default, and
+# configurable via CORS_ALLOWED_ORIGINS (comma-separated) for other deployments.
+_default_origins = "http://localhost:3000,https://autovision-ai.onrender.com"
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,21 +125,25 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint"""
-    try:        # Check Supabase connection
-        supabase_status = "connected"
+    try:
+        # Real Supabase connectivity check: a cheap, real query rather than a no-op.
         try:
-            # Test database connection (simplified)
-            pass
+            from backend.autovision_client import supabase_client
+            supabase_client.get_admin_client().table("user_profiles").select("id").limit(1).execute()
+            supabase_status = "connected"
         except Exception as e:
             supabase_status = f"error: {str(e)}"
-          # Video processor status
-        video_processor_status = "running"
-        
+
+        video_processor = getattr(request.app.state, "video_processor", None)
+        video_processor_status = "running" if video_processor is not None else "not_initialized"
+
+        overall_status = "healthy" if supabase_status == "connected" else "degraded"
+
         return {
-            "status": "healthy",
-            "timestamp": "2024-12-19T00:00:00Z",
+            "status": overall_status,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "services": {
                 "supabase": supabase_status,
                 "video_processor": video_processor_status
@@ -181,11 +194,13 @@ if __name__ == "__main__":
         level="INFO"
     )
     
-    # Run the application
+    # Run the application. PORT follows the Render/Heroku-style convention of
+    # an env-injected port; reload is disabled outside local development.
+    is_production = os.getenv("ENVIRONMENT", "development").lower() == "production"
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=12000,
-        reload=True,
+        port=int(os.getenv("PORT", "12000")),
+        reload=not is_production,
         log_level="info"
     )
