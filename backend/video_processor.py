@@ -660,6 +660,8 @@ class VideoProcessor:
                     "frame_number": result["frame_number"],
                     "bounding_box": result.get("bounding_box"),
                     "description": f"Anomaly detected: {result['anomaly_type']} with score {result['anomaly_score']:.2f}",
+                    "explanation": result.get("rag_analysis", {}).get("explanation"),
+                    "recommendations": result.get("rag_analysis", {}).get("recommendations"),
                     "is_alert": float(result["anomaly_score"]) > ALERT_SCORE_THRESHOLD
                 }
                 
