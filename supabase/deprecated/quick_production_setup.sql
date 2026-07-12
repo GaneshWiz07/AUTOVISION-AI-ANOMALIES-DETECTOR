@@ -1,4 +1,7 @@
 -- ============================================================================
+-- DEPRECATED: superseded by supabase/schema.sql — do not run this file.
+-- Kept for historical reference only.
+-- ============================================================================
 -- AUTOVISION QUICK PRODUCTION SETUP
 -- ============================================================================
 -- Minimal script for quick deployment - includes only essential components

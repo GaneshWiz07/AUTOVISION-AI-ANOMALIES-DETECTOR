@@ -1,4 +1,7 @@
 -- ============================================================================
+-- DEPRECATED: superseded by supabase/schema.sql — do not run this file.
+-- Kept for historical reference only.
+-- ============================================================================
 -- AUTOVISION DATABASE TROUBLESHOOTING & FIX SCRIPT
 -- ============================================================================
 -- This script fixes common issues and ensures database consistency

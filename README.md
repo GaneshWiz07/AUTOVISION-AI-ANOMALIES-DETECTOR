@@ -13,7 +13,7 @@ AutoVision is a production-ready AI-powered video surveillance platform that com
 
 ### 🤖 AI-Powered Analysis
 
-- **Advanced Anomaly Detection**: Vision Transformer (ViT) and traditional computer vision models
+- **Advanced Anomaly Detection**: Pretrained CNN (MobileNetV2 via ONNX Runtime) appearance embeddings combined with OpenCV motion analysis - chosen to fit free-tier hosting memory limits
 - **Reinforcement Learning**: Adaptive learning system that improves detection accuracy over time
 - **RAG System**: Intelligent pattern recognition and contextual analysis
 - **Real-time Processing**: Automatic video processing upon upload
@@ -59,12 +59,10 @@ backend/
 ├── video_cleanup.py     # Automated cleanup service
 ├── autovision_client.py # Supabase integration
 └── ai_models/          # AI/ML components
-    ├── simple_anomaly_detector.py
-    ├── vit_anomaly_detector.py
+    ├── ml_anomaly_detector.py   # Real detector: MobileNetV2 (ONNX) + OpenCV motion analysis
+    ├── simple_anomaly_detector.py # Legacy random-score fallback (USE_PRETRAINED_MODELS=false)
     ├── simple_rl_controller.py
-    ├── rl_controller.py
-    ├── simple_rag_system.py
-    └── rag_system.py
+    └── simple_rag_system.py
 ```
 
 ### Frontend (React + TypeScript)
@@ -112,27 +110,32 @@ cd autovision
 
 1. Create a new Supabase project at [supabase.com](https://supabase.com)
 2. Get your project URL and anon key from the API settings
-3. Run the complete setup script:
+3. Run the canonical setup script (idempotent - safe to re-run):
 
 ```sql
 -- In Supabase SQL Editor, run:
-\i supabase/complete_production_setup.sql
+\i supabase/schema.sql
 ```
 
-Or use the quick setup for faster deployment:
-
-```sql
-\i supabase/quick_production_setup.sql
-```
+(`supabase/deprecated/` holds the older `complete_production_setup.sql` /
+`quick_production_setup.sql` / `troubleshooting_fixes.sql` scripts this
+replaced - kept for historical reference only, do not run them.)
 
 ### 3. Environment Configuration
 
-Create `.env` file in the project root:
+Backend and frontend each keep their own env file, alongside their own code:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+`backend/.env`:
 
 ```bash
 # Supabase Configuration
 SUPABASE_URL=your_supabase_project_url
-SUPABASE_KEY=your_supabase_anon_key
+SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # JWT Secret (use a strong random string)
@@ -140,19 +143,28 @@ JWT_SECRET=your_jwt_secret_key
 
 # Environment
 ENVIRONMENT=development
+```
 
-# Optional: OpenAI for advanced RAG features
-OPENAI_API_KEY=your_openai_api_key
+`frontend/.env` (only needed for production builds/preview - `npm run dev` uses
+the Vite proxy in `vite.config.js` instead):
+
+```bash
+VITE_API_URL=http://localhost:12000/api/v1
 ```
 
 ### 4. Backend Setup
 
 ```bash
+cd backend
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+
 # Install Python dependencies
 pip install -r requirements.txt
 
 # Start the backend server
-cd backend
 python main.py
 ```
 
@@ -183,14 +195,16 @@ Users can configure the following through the web interface:
 
 ### Environment Variables
 
-| Variable                    | Description                           | Required |
-| --------------------------- | ------------------------------------- | -------- |
-| `SUPABASE_URL`              | Your Supabase project URL             | ✅       |
-| `SUPABASE_KEY`              | Supabase anon key                     | ✅       |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for admin operations | ✅       |
-| `JWT_SECRET`                | Secret for JWT token signing          | ✅       |
-| `ENVIRONMENT`               | Environment (development/production)  | ❌       |
-| `OPENAI_API_KEY`            | OpenAI API key for enhanced RAG       | ❌       |
+| Variable                     | Description                                          | Required |
+| ---------------------------- | ----------------------------------------------------- | -------- |
+| `SUPABASE_URL`                | Your Supabase project URL                              | ✅       |
+| `SUPABASE_ANON_KEY`           | Supabase anon key                                      | ✅       |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Service role key for admin operations                  | ✅       |
+| `JWT_SECRET`                  | Secret for JWT token signing                           | ✅       |
+| `ENVIRONMENT`                 | Environment (development/production)                   | ❌       |
+| `CORS_ALLOWED_ORIGINS`        | Comma-separated allowed frontend origins               | ❌       |
+| `USE_PRETRAINED_MODELS`       | Use the real ML detector vs. legacy demo detector       | ❌       |
+| `SYSTEM_ADMIN_EMAILS`         | Comma-separated emails provisioned as system/admin users | ❌       |
 
 ## 📊 API Documentation
 
@@ -237,9 +251,9 @@ Users can configure the following through the web interface:
 2. **Create a new Web Service** on Render:
 
    - Connect your GitHub repository
-   - Set build command: `pip install -r requirements.txt`
+   - Set build command: `pip install -r backend/requirements.txt`
    - Set start command: `cd backend && python main.py`
-   - Add environment variables from your `.env` file
+   - Add environment variables from your `backend/.env` file
 
 3. **Deploy Frontend** to Vercel/Netlify:
    - Connect your repository
@@ -253,7 +267,7 @@ Users can configure the following through the web interface:
 # Backend Dockerfile
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install -r requirements.txt
 COPY . .
 CMD ["python", "backend/main.py"]
@@ -265,10 +279,11 @@ For production deployment, ensure these environment variables are set:
 
 ```bash
 SUPABASE_URL=your_production_supabase_url
-SUPABASE_KEY=your_production_anon_key
+SUPABASE_ANON_KEY=your_production_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_production_service_role_key
 JWT_SECRET=your_strong_jwt_secret
 ENVIRONMENT=production
+CORS_ALLOWED_ORIGINS=https://your-frontend-domain.com
 ```
 
 ## 🧪 Testing
@@ -320,14 +335,11 @@ class CustomAnomalyDetector(BaseAnomalyDetector):
 
 ### Database Migrations
 
-Use the provided SQL scripts for database changes:
+`supabase/schema.sql` is the single canonical, idempotent schema definition -
+re-run it any time to apply changes or reconcile drift:
 
 ```sql
--- Apply troubleshooting fixes
-\i supabase/troubleshooting_fixes.sql
-
--- For development, reset to clean state
-\i supabase/complete_production_setup.sql
+\i supabase/schema.sql
 ```
 
 ### Adding New Features
@@ -342,19 +354,23 @@ Use the provided SQL scripts for database changes:
 ```
 autovision/
 ├── README.md                    # This file
-├── requirements.txt             # Python dependencies
 ├── .slugignore                 # Render deployment config
-├── migrate_to_storage.py       # Storage migration utility
 ├── cleanup.py                  # Development cleanup script
+├── ai_models/                  # AI/ML models (shared by backend, not nested in it)
+│   ├── ml_anomaly_detector.py
+│   ├── simple_rl_controller.py
+│   └── simple_rag_system.py
 ├── backend/                    # FastAPI backend
+│   ├── .env.example            # Backend env template (copy to .env)
+│   ├── requirements.txt        # Python dependencies
 │   ├── main.py                # Application entry point
 │   ├── api_routes.py          # REST API routes
 │   ├── auth.py                # Authentication
 │   ├── video_processor.py     # Video processing
 │   ├── video_cleanup.py       # Cleanup service
-│   ├── autovision_client.py   # Supabase integration
-│   └── ai_models/             # AI/ML models
+│   └── autovision_client.py   # Supabase integration
 ├── frontend/                  # React frontend
+│   ├── .env.example            # Frontend env template (copy to .env)
 │   ├── package.json
 │   ├── src/
 │   │   ├── App.tsx
@@ -364,10 +380,8 @@ autovision/
 │   │   └── lib/
 │   └── public/
 └── supabase/                  # Database setup
-    ├── README.md              # Database documentation
-    ├── complete_production_setup.sql
-    ├── quick_production_setup.sql
-    └── troubleshooting_fixes.sql
+    ├── schema.sql             # Canonical, idempotent schema (source of truth)
+    └── deprecated/            # Superseded setup scripts, kept for reference only
 ```
 
 ## 🤝 Contributing
@@ -401,7 +415,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
    - Verify your environment variables
    - Check Supabase project status
-   - Run `supabase/troubleshooting_fixes.sql`
+   - Re-run `supabase/schema.sql` (idempotent) to reconcile any schema drift
 
 2. **Video Upload Failures**:
 

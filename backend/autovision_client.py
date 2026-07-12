@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List
 from supabase import create_client, Client
 from loguru import logger
 import json
+import numpy as np
 from datetime import datetime
 import uuid
 from pathlib import Path
@@ -48,30 +49,34 @@ class SupabaseClient:
         return self.admin_client
     
     # User Management
-    async def create_user_profile(self, user_id: str, email: str, full_name: Optional[str] = None) -> Dict[str, Any]:
+    async def create_user_profile(self, user_id: str, email: str, full_name: Optional[str] = None,
+                                   is_system_user: bool = False) -> Dict[str, Any]:
         """Create or update user profile"""
         try:
             # First, check if a profile with this email already exists
             existing_profile = self.admin_client.table("user_profiles").select("*").eq("email", email).execute()
-            
+
             if existing_profile.data:
                 existing_id = existing_profile.data[0].get("id")
-                
+
                 # If the existing profile has a different user_id, delete it first
                 if existing_id != user_id:
                     logger.warning(f"Profile exists for {email} with different ID ({existing_id}). Deleting old profile.")
                     self.admin_client.table("user_profiles").delete().eq("email", email).execute()
-                    
+
                     # Now create new profile
                     data = {
                         "id": user_id,
                         "email": email,
                         "full_name": full_name,
+                        "is_system_user": is_system_user,
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     result = self.admin_client.table("user_profiles").insert(data).execute()
                 else:
-                    # Same user_id, just update
+                    # Same user_id, just update (never overwrite is_system_user here -
+                    # that flag is only ever set at profile creation, so it isn't
+                    # silently reset/escalated on every subsequent login/signup retry)
                     logger.info(f"Updating existing profile for {email}")
                     result = self.admin_client.table("user_profiles").update({
                         "full_name": full_name,
@@ -83,10 +88,11 @@ class SupabaseClient:
                     "id": user_id,
                     "email": email,
                     "full_name": full_name,
+                    "is_system_user": is_system_user,
                     "updated_at": datetime.utcnow().isoformat()
                 }
                 result = self.admin_client.table("user_profiles").insert(data).execute()
-            
+
             logger.info(f"User profile created/updated for {email}")
             return result.data[0] if result.data else {}
         except Exception as e:
@@ -117,24 +123,24 @@ class SupabaseClient:
                 "duration_seconds": duration,
                 "fps": fps,
                 "resolution": resolution,
-                "upload_status": "pending"
+                "upload_status": "uploaded"
             }
-            
-            result = self.client.table("videos").insert(data).execute()
+
+            result = self.admin_client.table("videos").insert(data).execute()
             logger.info(f"Video record created: {filename}")
             return result.data[0] if result.data else {}
         except Exception as e:
             logger.error(f"Error creating video record: {e}")
             raise
-    
+
     def update_video_status(self, video_id: str, status: str, metadata: Optional[Dict] = None) -> bool:
         """Update video processing status"""
         try:
             data = {"upload_status": status}
             if metadata:
                 data.update(metadata)
-            
-            result = self.client.table("videos").update(data).eq("id", video_id).execute()
+
+            result = self.admin_client.table("videos").update(data).eq("id", video_id).execute()
             logger.info(f"Video status updated: {video_id} -> {status}")
             return True
         except Exception as e:
@@ -222,7 +228,7 @@ class SupabaseClient:
     def update_event_feedback(self, event_id: str, is_false_positive: bool) -> bool:
         """Update event with user feedback"""
         try:
-            result = (self.client.table("events")
+            result = (self.admin_client.table("events")
                      .update({"is_false_positive": is_false_positive})
                      .eq("id", event_id)
                      .execute())
@@ -246,16 +252,16 @@ class SupabaseClient:
                 "event_id": event_id,
                 "metadata": metadata
             }
-            
-            result = self.client.table("logs").insert(data).execute()
+
+            result = self.admin_client.table("logs").insert(data).execute()
             return True
         except Exception as e:
             logger.error(f"Error creating log: {e}")
             return False
-    
+
     # RL Training Data
-    async def save_rl_training_data(self, user_id: str, state_vector: List[float], 
-                                   action: int, reward: float, 
+    async def save_rl_training_data(self, user_id: str, state_vector: List[float],
+                                   action: int, reward: float,
                                    next_state_vector: Optional[List[float]] = None,
                                    done: bool = False) -> bool:
         """Save RL training data"""
@@ -268,17 +274,17 @@ class SupabaseClient:
                 "next_state_vector": next_state_vector,
                 "done": done
             }
-            
-            result = self.client.table("rl_training_data").insert(data).execute()
+
+            result = self.admin_client.table("rl_training_data").insert(data).execute()
             return True
         except Exception as e:
             logger.error(f"Error saving RL training data: {e}")
             return False
-    
+
     def get_rl_training_data(self, user_id: str, limit: int = 1000) -> List[Dict[str, Any]]:
         """Get RL training data for user"""
         try:
-            result = (self.client.table("rl_training_data")
+            result = (self.admin_client.table("rl_training_data")
                      .select("*")
                      .eq("user_id", user_id)
                      .order("created_at", desc=True)
@@ -288,26 +294,26 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error getting RL training data: {e}")
             return []
-    
+
     # Historical Patterns for RAG
-    async def save_historical_pattern(self, user_id: str, pattern_type: str, 
+    async def save_historical_pattern(self, user_id: str, pattern_type: str,
                                      embedding: List[float], description: str,
                                      metadata: Optional[Dict] = None) -> bool:
         """Save historical pattern for RAG"""
         try:
             # Check if pattern already exists
-            existing = (self.client.table("historical_patterns")
+            existing = (self.admin_client.table("historical_patterns")
                        .select("id, frequency_count")
                        .eq("user_id", user_id)
                        .eq("pattern_type", pattern_type)
                        .eq("description", description)
                        .execute())
-            
+
             if existing.data:
                 # Update frequency
                 pattern_id = existing.data[0]["id"]
                 new_count = existing.data[0]["frequency_count"] + 1
-                self.client.table("historical_patterns").update({
+                self.admin_client.table("historical_patterns").update({
                     "frequency_count": new_count,
                     "last_seen": datetime.utcnow().isoformat()
                 }).eq("id", pattern_id).execute()
@@ -321,27 +327,48 @@ class SupabaseClient:
                     "metadata": metadata,
                     "frequency_count": 1
                 }
-                self.client.table("historical_patterns").insert(data).execute()
-            
+                self.admin_client.table("historical_patterns").insert(data).execute()
+
             return True
         except Exception as e:
             logger.error(f"Error saving historical pattern: {e}")
             return False
-    
-    def search_similar_patterns(self, user_id: str, embedding: List[float], 
+
+    def search_similar_patterns(self, user_id: str, embedding: List[float],
                                pattern_type: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
-        """Search for similar historical patterns using vector similarity"""
+        """Search for similar historical patterns using cosine similarity on stored embeddings"""
         try:
-            query = self.client.table("historical_patterns").select("*").eq("user_id", user_id)
-            
+            query = self.admin_client.table("historical_patterns").select("*").eq("user_id", user_id)
+
             if pattern_type:
                 query = query.eq("pattern_type", pattern_type)
-            
-            result = query.order("frequency_count", desc=True).limit(limit * 2).execute()
-            
-            # For now, return most frequent patterns
-            # In production, you'd use vector similarity search
-            return result.data[:limit] if result.data else []
+
+            # Pull a candidate pool (most frequent first) and rank it by real
+            # cosine similarity against the query embedding in Python, since
+            # this schema doesn't use pgvector for server-side ANN search.
+            result = query.order("frequency_count", desc=True).limit(max(limit * 10, 50)).execute()
+            candidates = result.data or []
+            if not candidates:
+                return []
+
+            query_vec = np.array(embedding, dtype=np.float64)
+            query_norm = np.linalg.norm(query_vec)
+            if query_norm == 0:
+                return candidates[:limit]
+
+            scored = []
+            for pattern in candidates:
+                pattern_embedding = pattern.get("embedding")
+                if not pattern_embedding:
+                    continue
+                vec = np.array(pattern_embedding, dtype=np.float64)
+                if vec.shape != query_vec.shape or np.linalg.norm(vec) == 0:
+                    continue
+                similarity = float(np.dot(query_vec, vec) / (query_norm * np.linalg.norm(vec)))
+                scored.append((similarity, pattern))
+
+            scored.sort(key=lambda item: item[0], reverse=True)
+            return [pattern for _, pattern in scored[:limit]]
         except Exception as e:
             logger.error(f"Error searching similar patterns: {e}")
             return []

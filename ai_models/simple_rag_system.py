@@ -46,27 +46,31 @@ class SimpleRAGSystem:
         # Simple retrieval cache
         self.retrieval_cache = {}
         self.cache_max_size = 100
-        
+        self.cache_hits = 0
+        self.cache_misses = 0
+
         logger.info("Simple RAG system initialized")
-    
+
     def retrieve_context(self, features: np.ndarray, anomaly_score: float) -> Dict[str, Any]:
         """
         Retrieve relevant context for anomaly analysis
-        
+
         Args:
             features: Feature vector from the frame
             anomaly_score: Current anomaly score
-            
+
         Returns:
             Context information for analysis
         """
         # Simple feature-based retrieval (demo)
         feature_hash = hash(features.tobytes()) % 1000
-        
+
         # Check cache first
         if feature_hash in self.retrieval_cache:
+            self.cache_hits += 1
             return self.retrieval_cache[feature_hash]
-        
+        self.cache_misses += 1
+
         # Generate context based on anomaly score
         if anomaly_score > 0.7:
             relevant_patterns = self.knowledge_base["anomaly_patterns"]
@@ -155,53 +159,92 @@ class SimpleRAGSystem:
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get system statistics"""
+        total_lookups = self.cache_hits + self.cache_misses
         return {
             "knowledge_base_size": sum(len(v) for v in self.knowledge_base.values()),
             "cache_size": len(self.retrieval_cache),
-            "cache_hit_rate": 0.85  # Simulated value
+            "cache_hit_rate": (self.cache_hits / total_lookups) if total_lookups > 0 else 0.0
         }
-    
+
+    def get_pattern_stats(self) -> Dict[str, Any]:
+        """Get a per-pattern-type breakdown of the knowledge base"""
+        return {
+            "pattern_types": {
+                pattern_type: len(entries)
+                for pattern_type, entries in self.knowledge_base.items()
+            },
+            "total_patterns": sum(len(v) for v in self.knowledge_base.values()),
+            "cache_size": len(self.retrieval_cache),
+        }
+
+    def generate_pattern_summary(self, pattern_type: Optional[str] = None) -> Dict[str, Any]:
+        """Summarize known patterns, optionally filtered to a single pattern_type"""
+        if pattern_type:
+            entries = self.knowledge_base.get(pattern_type, [])
+            return {
+                "pattern_type": pattern_type,
+                "count": len(entries),
+                "examples": entries[-10:],
+            }
+
+        return {
+            "pattern_type": None,
+            "summary": {
+                pattern_type: {"count": len(entries), "examples": entries[-5:]}
+                for pattern_type, entries in self.knowledge_base.items()
+            },
+        }
+
     def clear_cache(self):
         """Clear the retrieval cache"""
         self.retrieval_cache.clear()
         logger.info("RAG system cache cleared")
     
-    def analyze_detection(self, description: str, anomaly_score: float, anomaly_type: str) -> Dict[str, Any]:
+    def analyze_detection(self, description: str, anomaly_score: float, anomaly_type: str,
+                           signals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Analyze a detection using RAG (Retrieval-Augmented Generation)
-        
+
         Args:
             description: Description of the detected event
             anomaly_score: Score from anomaly detector
-            anomaly_type: Type of anomaly detected
-            
+            anomaly_type: Type of anomaly detected (already derived by the
+                caller from real measured signals - see
+                backend/video_processor.py's _classify_anomaly_type)
+            signals: the real measurements behind that classification
+                (contour_count, velocity_px_per_sec, loiter_duration_seconds,
+                motion_score, appearance_score). Used to ground confidence
+                and context in actual numbers instead of keyword-matching
+                the description string (which would be circular - that
+                string was generated from anomaly_type in the first place).
+
         Returns:
             Dict containing analysis results
         """
         try:
-            # Get relevant context from knowledge base
-            context = self.get_relevant_context(description, anomaly_type)
-            
-            # Generate confidence adjustment based on context
-            confidence_adjustment = 0.0
-            
-            # Check if this matches known anomaly patterns
-            for pattern in self.knowledge_base.get("anomaly_patterns", []):
-                if any(word in description.lower() for word in pattern.lower().split()):
-                    confidence_adjustment += 0.1  # Increase confidence
-                    
-            # Check if this matches normal patterns (reduce confidence for anomalies)
-            for pattern in self.knowledge_base.get("normal_patterns", []):
-                if any(word in description.lower() for word in pattern.lower().split()):
-                    if anomaly_score > 0.5:  # If flagged as anomaly but matches normal pattern
-                        confidence_adjustment -= 0.2  # Reduce confidence
-            
-            # Normalize confidence to 0-1 range
-            confidence = max(0.0, min(1.0, 0.5 + confidence_adjustment))
-            
+            signals = signals or {}
+            context = self.get_relevant_context(anomaly_type, signals)
+
+            # Confidence scales with how strongly the real signal that drove
+            # this classification exceeded a "just barely" reading, not with
+            # keyword overlap against a self-generated description.
+            if anomaly_type == "crowd_gathering":
+                crowd_count = signals.get("person_count", 0) or signals.get("contour_count", 0)
+                confidence = min(0.95, 0.5 + 0.1 * crowd_count)
+            elif anomaly_type == "running":
+                confidence = min(0.95, 0.5 + signals.get("velocity_px_per_sec", 0.0) / 500.0)
+            elif anomaly_type == "loitering":
+                confidence = min(0.95, 0.5 + signals.get("loiter_duration_seconds", 0.0) / 60.0)
+            elif anomaly_type.endswith("_detected"):
+                # This label came from a real object-detector confidence
+                # score in the first place - use it directly.
+                confidence = min(0.95, max(0.5, signals.get("top_object_confidence", 0.5)))
+            else:
+                confidence = min(0.95, max(0.05, anomaly_score))
+
             # Generate explanation
             explanation = self._generate_explanation(description, anomaly_score, anomaly_type, context)
-            
+
             # Generate recommendations
             recommendations = self._generate_recommendations(anomaly_score, anomaly_type)
             
@@ -227,7 +270,7 @@ class SimpleRAGSystem:
                 "analysis_type": "fallback"
             }
     
-    def _generate_explanation(self, description: str, anomaly_score: float, 
+    def _generate_explanation(self, description: str, anomaly_score: float,
                             anomaly_type: str, context: Dict[str, Any]) -> str:
         """Generate explanation for the detection"""
         if anomaly_score > 0.7:
@@ -236,12 +279,16 @@ class SimpleRAGSystem:
             severity = "moderate"
         else:
             severity = "low"
-            
-        explanation = f"Detected {anomaly_type} with {severity} severity (score: {anomaly_score:.3f}). "
-        
-        if context.get("relevant_patterns"):
-            explanation += f"This pattern is similar to known {anomaly_type} events. "
-            
+
+        readable_type = (
+            anomaly_type[: -len("_detected")].replace("_", " ")
+            if anomaly_type.endswith("_detected") else anomaly_type.replace("_", " ")
+        )
+        explanation = f"Detected {readable_type} with {severity} severity (score: {anomaly_score:.3f}). "
+
+        if context.get("relevant_patterns") and not anomaly_type.endswith("_detected"):
+            explanation += f"This pattern is similar to known {readable_type} events. "
+
         if anomaly_score > 0.6:
             explanation += "Requires immediate attention."
         elif anomaly_score > 0.3:
@@ -273,12 +320,18 @@ class SimpleRAGSystem:
                 "Continue normal monitoring"
             ])
             
-        # Add type-specific recommendations
-        if anomaly_type == "motion_anomaly":
-            recommendations.append("Check for unauthorized access")
-        elif anomaly_type == "object_anomaly":
-            recommendations.append("Verify object identification")
-            
+        # Add type-specific recommendations (matches the real taxonomy
+        # produced by backend/video_processor.py's _classify_anomaly_type)
+        if anomaly_type == "crowd_gathering":
+            recommendations.append("Check for overcrowding or a gathering forming")
+        elif anomaly_type == "running":
+            recommendations.append("Check whether the subject is fleeing or in distress")
+        elif anomaly_type == "loitering":
+            recommendations.append("Check whether the subject is authorized to be in this area")
+        elif anomaly_type.endswith("_detected"):
+            label = anomaly_type[: -len("_detected")].replace("_", " ")
+            recommendations.append(f"Verify the recognized {label} and whether it belongs in this area")
+
         return recommendations[:3]  # Limit to 3 recommendations
     
     def add_pattern(self, pattern_type: str, description: str, metadata: Optional[Dict[str, Any]] = None):
@@ -329,41 +382,68 @@ class SimpleRAGSystem:
         except Exception as e:
             logger.error(f"Error adding pattern to RAG system: {e}")
     
-    def get_relevant_context(self, description: str, anomaly_type: str) -> Dict[str, Any]:
+    def get_relevant_context(self, anomaly_type: str, signals: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Get relevant context from the knowledge base
-        
+        Get relevant context for a detection, grounded in the real measured
+        signals that produced anomaly_type (contour_count, velocity,
+        loiter_duration - see backend/video_processor.py's
+        _classify_anomaly_type). Previously this matched keywords against a
+        description string that was itself generated from anomaly_type,
+        which only ever confirmed the label already knew - it never
+        touched the actual frame data.
+
         Args:
-            description: Description of the detected event
             anomaly_type: Type of anomaly detected
-            
+            signals: real measurements behind that classification
+
         Returns:
-            Context information from the knowledge base
+            Context information for analysis
         """
+        signals = signals or {}
         context = {
             "relevant_patterns": [],
             "contextual_factors": [],
             "anomaly_type": anomaly_type
         }
-        
-        # Simple keyword matching for demo purposes
-        if "crowd" in description or "gathering" in description:
-            context["relevant_patterns"].append("Unusual crowd gathering")
-        if "vehicle" in description and "restricted" in description:
-            context["relevant_patterns"].append("Vehicle stopped in restricted area")
-        if "person" in description and "restricted" in description:
-            context["relevant_patterns"].append("Person in restricted zone")
-        if "suspicious" in description or "object" in description:
-            context["relevant_patterns"].append("Suspicious object left behind")
-        
-        # Add contextual factors based on time, location, etc.
-        context["contextual_factors"].extend([
-            "Time of day: evening",
-            "Location: main entrance",
-            "Weather: clear",
-            "Light conditions: normal"
-        ])
-        
+
+        if anomaly_type == "crowd_gathering":
+            person_count = signals.get("person_count", 0)
+            if person_count:
+                context["relevant_patterns"].append("Unusual crowd gathering")
+                context["contextual_factors"].append(f"{person_count} people detected in frame")
+            else:
+                context["relevant_patterns"].append("Unusual crowd gathering")
+                context["contextual_factors"].append(
+                    f"{signals.get('contour_count', 0)} distinct moving regions detected in frame"
+                )
+        elif anomaly_type == "running":
+            context["relevant_patterns"].append("Fast-moving subject")
+            context["contextual_factors"].append(
+                f"Measured displacement speed ~{signals.get('velocity_px_per_sec', 0.0):.0f} px/sec"
+            )
+        elif anomaly_type == "loitering":
+            context["relevant_patterns"].append("Extended dwell time in one area")
+            context["contextual_factors"].append(
+                f"Subject remained in the same area for ~{signals.get('loiter_duration_seconds', 0.0):.0f}s"
+            )
+        elif anomaly_type.endswith("_detected"):
+            label = anomaly_type[: -len("_detected")].replace("_", " ")
+            context["relevant_patterns"].append(f"Recognized object: {label}")
+            context["contextual_factors"].append(
+                f"Object detector confidence ~{signals.get('top_object_confidence', 0.0):.2f}"
+            )
+            object_counts = signals.get("object_counts") or {}
+            if len(object_counts) > 1:
+                others = ", ".join(f"{c} {l}" for l, c in object_counts.items() if l != label)
+                if others:
+                    context["contextual_factors"].append(f"Also visible: {others}")
+        elif anomaly_type == "motion_anomaly":
+            context["relevant_patterns"].append("Unclassified motion or appearance deviation")
+            context["contextual_factors"].append(
+                f"motion_score={signals.get('motion_score', 0.0):.2f}, "
+                f"appearance_score={signals.get('appearance_score', 0.0):.2f}"
+            )
+
         return context
 
 
