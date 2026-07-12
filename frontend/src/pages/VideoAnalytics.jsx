@@ -391,6 +391,25 @@ const VideoAnalytics = () => {
                                 {event.description}
                               </p>
                             )}
+                            {event.explanation && (
+                              <p className="text-sm text-gray-700 mt-2">
+                                {event.explanation}
+                              </p>
+                            )}
+                            {Array.isArray(event.recommendations) &&
+                              event.recommendations.length > 0 && (
+                                <ul className="mt-2 space-y-0.5">
+                                  {event.recommendations.map((rec, idx) => (
+                                    <li
+                                      key={idx}
+                                      className="text-xs text-gray-600 flex items-start"
+                                    >
+                                      <span className="mr-1.5">•</span>
+                                      {rec}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                           </div>
                           {event.is_alert && (
                             <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />

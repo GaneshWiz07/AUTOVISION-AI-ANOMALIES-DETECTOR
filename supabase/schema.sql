@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS public.events (
     frame_number INTEGER NOT NULL,
     bounding_box JSONB,
     description TEXT,
+    explanation TEXT,
+    recommendations JSONB,
     is_alert BOOLEAN DEFAULT FALSE,
     is_false_positive BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -90,7 +92,9 @@ CREATE TABLE IF NOT EXISTS public.events (
 
 ALTER TABLE public.events
     ADD COLUMN IF NOT EXISTS bounding_box JSONB,
-    ADD COLUMN IF NOT EXISTS is_false_positive BOOLEAN DEFAULT FALSE;
+    ADD COLUMN IF NOT EXISTS is_false_positive BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS explanation TEXT,
+    ADD COLUMN IF NOT EXISTS recommendations JSONB;
 
 -- ============================================================================
 -- 4. USER SETTINGS
